@@ -2,8 +2,26 @@
 name: CI
 on:
   pull_request:
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
+      - "Dockerfile"
+      - "Dockerfile.release"
+      - "schemas/**"
+      - ".github/workflows/ci.yml"
   push:
     branches: [main, master, "release-*"]
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
+      - "Dockerfile"
+      - "Dockerfile.release"
+      - "schemas/**"
+      - ".github/workflows/ci.yml"
 
 permissions:
   contents: read
