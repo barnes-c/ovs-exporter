@@ -1,1 +1,1 @@
-Christopher Barnes <christopher(at)barnes(dot)biz>
+Christopher Barnes <christopher(dot)barnes(at)cern(dot).ch>
