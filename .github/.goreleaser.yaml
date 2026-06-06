@@ -1,0 +1,162 @@
+---
+version: 2
+project_name: ovs-exporter
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  - id: ovs-exporter
+    binary: ovs-exporter
+    main: .
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/prometheus/common/version.Version={{ .Version }}
+      - -X github.com/prometheus/common/version.Revision={{ .Commit }}
+      - -X github.com/prometheus/common/version.Branch={{ .Branch }}
+      - -X github.com/prometheus/common/version.BuildDate={{ .Date }}
+      - -X github.com/prometheus/common/version.BuildUser=goreleaser
+
+archives:
+  - id: tarball
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+
+nfpms:
+  - id: packages
+    package_name: ovs-exporter
+    file_name_template: >-
+      {{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    formats:
+      - rpm
+      - deb
+    maintainer: Christopher Barnes <github@barnes.biz>
+    description: OTel-native Prometheus exporter for Open vSwitch (OVS) and OVN
+    license: Apache-2.0
+    homepage: https://github.com/barnes-c/ovs-exporter
+    bindir: /usr/bin
+    contents:
+      - src: examples/systemd/ovs-exporter.service
+        dst: /usr/lib/systemd/system/ovs-exporter.service
+      - src: examples/sysconfig/ovs-exporter
+        dst: /etc/sysconfig/ovs-exporter
+        type: config|noreplace
+        packager: rpm
+      - src: examples/sysconfig/ovs-exporter
+        dst: /etc/default/ovs-exporter
+        type: config|noreplace
+        packager: deb
+    rpm:
+      group: System Environment/Daemons
+    overrides:
+      rpm:
+        dependencies:
+          - openvswitch
+      deb:
+        dependencies:
+          - openvswitch-switch
+
+dockers:
+  - id: amd64
+    image_templates:
+      - "ghcr.io/barnes-c/ovs-exporter:{{ .Version }}-amd64"
+      - "docker.io/barnesbiz/ovs-exporter:{{ .Version }}-amd64"
+    use: buildx
+    dockerfile: Dockerfile.release
+    goos: linux
+    goarch: amd64
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .Commit }}"
+  - id: arm64
+    image_templates:
+      - "ghcr.io/barnes-c/ovs-exporter:{{ .Version }}-arm64"
+      - "docker.io/barnesbiz/ovs-exporter:{{ .Version }}-arm64"
+    use: buildx
+    dockerfile: Dockerfile.release
+    goos: linux
+    goarch: arm64
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .Commit }}"
+
+docker_manifests:
+  - name_template: "ghcr.io/barnes-c/ovs-exporter:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/barnes-c/ovs-exporter:{{ .Version }}-amd64"
+      - "ghcr.io/barnes-c/ovs-exporter:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/barnes-c/ovs-exporter:latest"
+    image_templates:
+      - "ghcr.io/barnes-c/ovs-exporter:{{ .Version }}-amd64"
+      - "ghcr.io/barnes-c/ovs-exporter:{{ .Version }}-arm64"
+  - name_template: "docker.io/barnesbiz/ovs-exporter:{{ .Version }}"
+    image_templates:
+      - "docker.io/barnesbiz/ovs-exporter:{{ .Version }}-amd64"
+      - "docker.io/barnesbiz/ovs-exporter:{{ .Version }}-arm64"
+  - name_template: "docker.io/barnesbiz/ovs-exporter:latest"
+    image_templates:
+      - "docker.io/barnesbiz/ovs-exporter:{{ .Version }}-amd64"
+      - "docker.io/barnesbiz/ovs-exporter:{{ .Version }}-arm64"
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-snapshot"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+signs:
+  - cmd: cosign
+    signature: "${artifact}.sig"
+    certificate: "${artifact}.pem"
+    args:
+      - sign-blob
+      - --oidc-issuer=https://token.actions.githubusercontent.com
+      - --output-signature=${signature}
+      - --output-certificate=${certificate}
+      - --yes
+      - ${artifact}
+    artifacts: checksum
+
+docker_signs:
+  - cmd: cosign
+    artifacts: all
+    output: true
+    args:
+      - sign
+      - --oidc-issuer=https://token.actions.githubusercontent.com
+      - --yes
+      - ${artifact}
+
+release:
+  github:
+    owner: barnes-c
+    name: ovs-exporter
+  prerelease: auto
