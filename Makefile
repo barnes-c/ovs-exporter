@@ -13,7 +13,7 @@ LDFLAGS := \
   -X github.com/prometheus/common/version.BuildUser=$(BUILDUSER) \
   -X github.com/prometheus/common/version.BuildDate=$(DATE)
 
-GORELEASER_CONFIG := .github/.goreleaser.yaml
+GORELEASER_CONFIG := .github/.goreleaser.yml
 
 .PHONY: all build build-all test vet lint fmt tidy snapshot release check clean
 
