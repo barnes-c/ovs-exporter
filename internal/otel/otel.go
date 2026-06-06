@@ -20,48 +20,45 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// Using the module path so the OTel `instrumentation.scope.name` mirrors code base
+// scopeName is the instrumentation scope reported on Meter and Tracer.
+// Use the module path so the OTel `instrumentation.scope.name` attribute
+// reflects this codebase.
 const scopeName = "github.com/barnes-c/ovs-exporter"
-
-// histogramBoundaries is the explicit-bucket set applied to every Histogram
-// instrument via a View. Cumulative temporality (the SDK default) keeps the
-// Prometheus exporter output compatible with PromQL `histogram_quantile`.
-// Exponential histograms are intentionally NOT enabled — most Prometheus
-// deployments still cannot parse them.
-var histogramBoundaries = []float64{
-	0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10,
-}
 
 // Config configures the OTel pipeline.
 //
 // The exporter selectors follow the OpenTelemetry environment-variable
 // convention (OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER, OTEL_LOGS_EXPORTER)
-// but with two project-specific deviations:
+// but default to "none" instead of the OTel-spec "otlp". Rationale: this is
+// a Prometheus exporter, not a general-purpose OTel app — most deployments
+// scrape /metrics and have no collector reachable; defaulting to "otlp"
+// would spam connection errors at localhost:4317 on every install.
 //
-//   - MetricsExporter defaults to "prometheus" (not "otlp") so /metrics is
-//     served out of the box. Comma-separated values are allowed to enable
-//     multiple readers, e.g. "prometheus,otlp" or "prometheus,console".
-//   - TracesExporter and LogsExporter default to "none" — most operators
-//     only adopt traces/logs when they wire up an OTel collector.
+// The Prometheus reader is ALWAYS attached to the
+// MeterProvider regardless of MetricsExporter — /metrics is part of the
+// exporter's contract, not a configurable signal. MetricsExporter therefore
+// controls only the *push* exporters layered on top of Prom.
 //
-// Values "prometheus", "otlp", "console", and "none" are supported. The
-// canonical alias "otlp/stdout" is accepted for "console".
+// MetricsExporter accepts a comma-separated list, e.g. "otlp", "otlp,console",
+// or "none". The literal "prometheus" is accepted as a no-op (already on).
+// TracesExporter and LogsExporter accept a single value ("otlp", "console",
+// or "none").
 type Config struct {
 	ServiceName     string
 	ServiceVersion  string
 	Protocol        string // OTLP transport: "grpc" | "http/protobuf"
 	OTLPInterval    time.Duration
-	MetricsExporter string  // comma-separated; default "prometheus"
+	MetricsExporter string  // push exporters; default "none"
 	TracesExporter  string  // default "none"
 	LogsExporter    string  // default "none"
 	TraceSampleRate float64 // 0 < rate <= 1
 	PromMaxRequests int     // promhttp MaxRequestsInFlight; 0 → 40
 }
 
-// Result is what Setup returns. PromHandler is nil when "prometheus" is not
-// in MetricsExporter. Logger is the original logger by default; when
-// LogsExporter != "none" it is tee'd to also forward records through the
-// OTel log pipeline — callers should replace their logger with this one.
+// Result is what Setup returns. PromHandler is always non-nil — it serves
+// /metrics. Logger is the original logger by default; when LogsExporter is
+// not "none" it is tee'd to also forward records through the OTel log
+// pipeline — callers should replace their logger with this one.
 type Result struct {
 	Meter       metric.Meter
 	Tracer      trace.Tracer
@@ -70,8 +67,11 @@ type Result struct {
 	Shutdown    func(ctx context.Context) error
 }
 
+// Setup constructs the configured OTel pipeline. The Prometheus reader is
+// always installed. Push exporters whose selector is "none" are skipped.
+// The returned Shutdown must be called at process exit.
 func Setup(ctx context.Context, logger *slog.Logger, cfg Config) (*Result, error) {
-	cfg.MetricsExporter = cmp.Or(cfg.MetricsExporter, "prometheus")
+	cfg.MetricsExporter = cmp.Or(cfg.MetricsExporter, "none")
 	cfg.TracesExporter = cmp.Or(cfg.TracesExporter, "none")
 	cfg.LogsExporter = cmp.Or(cfg.LogsExporter, "none")
 	cfg.Protocol = cmp.Or(cfg.Protocol, "grpc")
@@ -94,10 +94,8 @@ func Setup(ctx context.Context, logger *slog.Logger, cfg Config) (*Result, error
 	if err != nil {
 		return nil, err
 	}
-	if mp != nil {
-		otel.SetMeterProvider(mp)
-		shutdowns = append(shutdowns, mp.Shutdown)
-	}
+	otel.SetMeterProvider(mp)
+	shutdowns = append(shutdowns, mp.Shutdown)
 	meter := otel.Meter(scopeName)
 
 	tracer := otel.Tracer(scopeName)
@@ -130,7 +128,6 @@ func Setup(ctx context.Context, logger *slog.Logger, cfg Config) (*Result, error
 		"otlp_protocol", cfg.Protocol,
 		"otlp_interval", cfg.OTLPInterval,
 		"trace_sample_rate", cfg.TraceSampleRate,
-		"prom_endpoint_enabled", promHandler != nil,
 	)
 
 	shutdown := func(ctx context.Context) error {
@@ -152,47 +149,27 @@ func Setup(ctx context.Context, logger *slog.Logger, cfg Config) (*Result, error
 	}, nil
 }
 
-// buildMeterProvider assembles the MeterProvider from the comma-separated
-// MetricsExporter list. Returns (nil, nil, nil) when MetricsExporter is
-// "none". PromHandler is non-nil iff "prometheus" appears in the list.
+// buildMeterProvider assembles the MeterProvider. The Prometheus reader is
+// always present; additional push readers come from the parsed
+// MetricsExporter list. Histograms are aggregated as native (base-2)
+// exponential histograms — Prom 3.0+ ingests these directly.
 func buildMeterProvider(ctx context.Context, res *resource.Resource, cfg Config) (*sdkmetric.MeterProvider, http.Handler, error) {
-	kinds, err := parseMetricsExporters(cfg.MetricsExporter)
+	promReader, promHandler, err := newPromReader(cfg.PromMaxRequests)
 	if err != nil {
 		return nil, nil, err
 	}
-	if len(kinds) == 0 {
-		return nil, nil, nil
+	readers := []sdkmetric.Reader{promReader}
+
+	pushKinds, err := parsePushExporters(cfg.MetricsExporter)
+	if err != nil {
+		return nil, nil, err
 	}
-
-	var (
-		readers     []sdkmetric.Reader
-		promHandler http.Handler
-	)
-
-	for _, kind := range kinds {
-		switch kind {
-		case "prometheus":
-			reader, handler, err := newPromReader(cfg.PromMaxRequests)
-			if err != nil {
-				return nil, nil, err
-			}
-			readers = append(readers, reader)
-			promHandler = handler
-		case "otlp":
-			exp, err := newMetricExporter(ctx, "otlp", cfg.Protocol)
-			if err != nil {
-				return nil, nil, err
-			}
-			readers = append(readers, sdkmetric.NewPeriodicReader(exp, sdkmetric.WithInterval(cfg.OTLPInterval)))
-		case "console", "otlp/stdout":
-			exp, err := newMetricExporter(ctx, "console", "")
-			if err != nil {
-				return nil, nil, err
-			}
-			readers = append(readers, sdkmetric.NewPeriodicReader(exp, sdkmetric.WithInterval(cfg.OTLPInterval)))
-		default:
-			return nil, nil, fmt.Errorf("unsupported metrics exporter %q", kind)
+	for _, kind := range pushKinds {
+		exp, err := newMetricExporter(ctx, kind, cfg.Protocol)
+		if err != nil {
+			return nil, nil, err
 		}
+		readers = append(readers, sdkmetric.NewPeriodicReader(exp, sdkmetric.WithInterval(cfg.OTLPInterval)))
 	}
 
 	opts := []sdkmetric.Option{
@@ -200,8 +177,9 @@ func buildMeterProvider(ctx context.Context, res *resource.Resource, cfg Config)
 		sdkmetric.WithView(sdkmetric.NewView(
 			sdkmetric.Instrument{Kind: sdkmetric.InstrumentKindHistogram},
 			sdkmetric.Stream{
-				Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-					Boundaries: histogramBoundaries,
+				Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{
+					MaxSize:  160,
+					MaxScale: 20,
 				},
 			},
 		)),
@@ -238,9 +216,11 @@ func buildLoggerProvider(ctx context.Context, res *resource.Resource, logger *sl
 	return lp, slog.New(multiHandler{logger.Handler(), otelHandler}), nil
 }
 
-// parseMetricsExporters splits a comma-separated list and normalizes aliases.
-// Whitespace and duplicates are tolerated.
-func parseMetricsExporters(s string) ([]string, error) {
+// parsePushExporters splits the comma-separated MetricsExporter value into
+// the non-Prom kinds that need a PeriodicReader. "none" or empty yields nil.
+// "prometheus" is accepted but ignored — the Prom reader is always-on. Other
+// entries are normalized (trimmed, deduped).
+func parsePushExporters(s string) ([]string, error) {
 	if strings.TrimSpace(s) == "none" {
 		return nil, nil
 	}
@@ -248,7 +228,8 @@ func parseMetricsExporters(s string) ([]string, error) {
 	var out []string
 	for _, raw := range strings.Split(s, ",") {
 		k := strings.TrimSpace(raw)
-		if k == "" {
+		switch k {
+		case "", "prometheus":
 			continue
 		}
 		if _, ok := seen[k]; ok {
@@ -256,9 +237,6 @@ func parseMetricsExporters(s string) ([]string, error) {
 		}
 		seen[k] = struct{}{}
 		out = append(out, k)
-	}
-	if len(out) == 0 {
-		return nil, fmt.Errorf("metrics exporter list is empty")
 	}
 	return out, nil
 }
