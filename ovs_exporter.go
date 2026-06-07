@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -23,6 +22,7 @@ import (
 
 	_ "github.com/barnes-c/ovs-exporter/collector"
 	"github.com/barnes-c/ovs-exporter/internal/otel"
+	"github.com/barnes-c/ovs-exporter/internal/probes"
 )
 
 var (
@@ -75,19 +75,17 @@ var (
 	toolkitFlags = kingpinflag.AddFlags(kingpin.CommandLine, ":10054")
 )
 
-func writeOK(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	_, _ = io.WriteString(w, "ok\n")
-}
-
 // buildHandler wires the HTTP routes served by the exporter: the OTel
-// Prometheus handler at metricsPath, healthz/readyz placeholders, and the
+// Prometheus handler at metricsPath, healthz/readyz probes, and the
 // exporter-toolkit landing page at "/" (unless metricsPath itself is "/").
+// readyz is currently registered with no checks (always 200) — actual
+// checks for libovsdb connectivity and unixctl scrape freshness will be
+// wired when those data sources land in main.
 func buildHandler(res *otel.Result, metricsPath string) (http.Handler, error) {
 	mux := http.NewServeMux()
 	mux.Handle(metricsPath, res.PromHandler)
-	mux.HandleFunc("/healthz", writeOK)
-	mux.HandleFunc("/readyz", writeOK)
+	mux.Handle("/healthz", probes.Health())
+	mux.Handle("/readyz", probes.Ready(nil))
 
 	if metricsPath != "/" {
 		landing, err := web.NewLandingPage(web.LandingConfig{
