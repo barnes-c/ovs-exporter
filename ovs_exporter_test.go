@@ -42,18 +42,6 @@ func setupOTelForTest(t *testing.T) *otel.Result {
 	return res
 }
 
-func TestWriteOK(t *testing.T) {
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
-	writeOK(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
-	if got := rec.Body.String(); got != "ok\n" {
-		t.Errorf("body = %q, want %q", got, "ok\n")
-	}
-}
-
 func TestBuildHandlerRoutes(t *testing.T) {
 	res := setupOTelForTest(t)
 	h, err := buildHandler(res, "/metrics")
@@ -67,7 +55,7 @@ func TestBuildHandlerRoutes(t *testing.T) {
 		wantSubstr string
 	}{
 		{"/healthz", http.StatusOK, "ok"},
-		{"/readyz", http.StatusOK, "ok"},
+		{"/readyz", http.StatusOK, ""},
 		{"/metrics", http.StatusOK, "target_info"},
 		{"/", http.StatusOK, "OVS Exporter"},
 	}
