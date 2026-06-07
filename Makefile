@@ -15,10 +15,11 @@ LDFLAGS := \
 
 GORELEASER_CONFIG := .github/.goreleaser.yml
 
-COMPOSE_FILE := examples/smoke/docker-compose.yml
-COMPOSE      ?= podman compose
+COMPOSE_FILE := test/integration/smoke/docker-compose.yml
+RUNTIME      ?= podman
+COMPOSE      ?= $(RUNTIME) compose
 
-.PHONY: all build build-all test vet lint fmt tidy snapshot release check clean \
+.PHONY: all build build-all test test-integration vet lint fmt tidy snapshot release check clean \
         smoke-up smoke-down smoke-logs
 
 all: fmt vet lint build test
@@ -65,3 +66,10 @@ smoke-down:
 
 smoke-logs:
 	$(COMPOSE) -f $(COMPOSE_FILE) logs -f
+
+# End-to-end test against a running smoke stack. Idempotent `up --wait`
+# so re-running doesn't pay the rebuild cost; stack stays up after for
+# inspection (tear down with `make smoke-down`).
+test-integration:
+	$(COMPOSE) -f $(COMPOSE_FILE) up --build -d --wait
+	CONTAINER_RUNTIME=$(RUNTIME) $(GO) test -tags integration -v -count=1 ./test/integration/...

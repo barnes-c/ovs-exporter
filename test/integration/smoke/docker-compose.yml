@@ -1,22 +1,3 @@
-# Smoke-test stack: a real ovs-vswitchd + ovsdb-server alongside the
-# exporter so you can `curl localhost:10054/metrics` and see ovs.*
-# metrics populated against a live daemon. NOT a production reference
-# manifest — for that, see examples/k8s/.
-#
-# Usage:
-#   make smoke-up         # start the stack
-#   curl localhost:10054/metrics | grep '^ovs_'
-#   docker exec ovs ovs-vsctl add-br br-smoke
-#   curl localhost:10054/metrics | grep '^ovs_bridges_count'  # should be +1
-#   make smoke-down
-#
-# Notes:
-#   - The OVS image tag is pinned to a known-good 3.3.x build. Bump as
-#     upstream rolls. CERN production is on 3.3.x.
-#   - The exporter runs as uid 0 in the compose stack because the OVS
-#     image creates its sockets root-owned. For production k8s use
-#     `--group-add openvswitch` and run as the distroless `nonroot` uid.
-
 services:
   ovs:
     build:
@@ -39,7 +20,7 @@ services:
 
   exporter:
     build:
-      context: ../..
+      context: ../../..
       dockerfile: Dockerfile
       args:
         VERSION: smoke
