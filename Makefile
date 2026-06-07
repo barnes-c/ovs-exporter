@@ -15,7 +15,11 @@ LDFLAGS := \
 
 GORELEASER_CONFIG := .github/.goreleaser.yml
 
-.PHONY: all build build-all test vet lint fmt tidy snapshot release check clean
+COMPOSE_FILE := examples/smoke/docker-compose.yml
+COMPOSE      ?= podman compose
+
+.PHONY: all build build-all test vet lint fmt tidy snapshot release check clean \
+        smoke-up smoke-down smoke-logs
 
 all: fmt vet lint build test
 
@@ -52,3 +56,12 @@ check:
 
 clean:
 	rm -rf dist/ ovs-exporter ovs-exporter-*
+
+smoke-up:
+	$(COMPOSE) -f $(COMPOSE_FILE) up --build -d
+
+smoke-down:
+	-$(COMPOSE) -f $(COMPOSE_FILE) down --volumes
+
+smoke-logs:
+	$(COMPOSE) -f $(COMPOSE_FILE) logs -f

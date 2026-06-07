@@ -1,0 +1,68 @@
+# Smoke-test stack: a real ovs-vswitchd + ovsdb-server alongside the
+# exporter so you can `curl localhost:10054/metrics` and see ovs.*
+# metrics populated against a live daemon. NOT a production reference
+# manifest — for that, see examples/k8s/.
+#
+# Usage:
+#   make smoke-up         # start the stack
+#   curl localhost:10054/metrics | grep '^ovs_'
+#   docker exec ovs ovs-vsctl add-br br-smoke
+#   curl localhost:10054/metrics | grep '^ovs_bridges_count'  # should be +1
+#   make smoke-down
+#
+# Notes:
+#   - The OVS image tag is pinned to a known-good 3.3.x build. Bump as
+#     upstream rolls. CERN production is on 3.3.x.
+#   - The exporter runs as uid 0 in the compose stack because the OVS
+#     image creates its sockets root-owned. For production k8s use
+#     `--group-add openvswitch` and run as the distroless `nonroot` uid.
+
+services:
+  ovs:
+    build:
+      context: ./ovs-dev
+      dockerfile: Dockerfile
+    image: ovs-dev:smoke
+    container_name: ovs
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ovs-runtime:/var/run/openvswitch
+      - ovs-logs:/var/log/openvswitch
+    healthcheck:
+      test: ["CMD", "ovs-vsctl", "show"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  exporter:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        VERSION: smoke
+        COMMIT: smoke
+        BRANCH: smoke
+        DATE: smoke
+    image: ovs-exporter:smoke
+    container_name: ovs-exporter
+    restart: unless-stopped
+    user: "0:0"
+    depends_on:
+      ovs:
+        condition: service_healthy
+    ports:
+      - "10054:10054"
+    volumes:
+      - ovs-runtime:/var/run/openvswitch:ro
+    command:
+      - --web.listen-address=:10054
+      - --cache.ttl=5s
+      - --ovs.db-socket=unix:/var/run/openvswitch/db.sock
+      - --ovs.run-dir=/var/run/openvswitch
+
+volumes:
+  ovs-runtime:
+  ovs-logs:
