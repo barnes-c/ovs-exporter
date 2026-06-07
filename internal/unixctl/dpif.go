@@ -3,6 +3,7 @@ package unixctl
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -28,10 +29,31 @@ type DPIF struct {
 	Datapaths map[string]*DPIFDatapath
 }
 
-// DPIFDatapath holds the per-datapath fields exposed by dpif/show.
+// DPIFDatapath holds the per-datapath fields exposed by dpif/show. The
+// Bridges map is populated only when the indented topology lines are
+// parsed; default-on collectors that need only lookup stats can ignore
+// it. Bridges/Ports are exposed via the opt-in ovs-datapath-interfaces
+// collector because of cardinality.
 type DPIFDatapath struct {
 	Name    string
 	Lookups DPIFLookups
+	Bridges map[string]*DPIFBridge
+}
+
+// DPIFBridge is a bridge entry in a datapath's topology.
+type DPIFBridge struct {
+	Name  string
+	Ports []DPIFPort
+}
+
+// DPIFPort describes one OF port under a bridge. OFPortNo is a string
+// because `none` is a valid value for patch ports (no underlying
+// datapath port number).
+type DPIFPort struct {
+	Name     string
+	PortNo   int64
+	OFPortNo string
+	Type     string
 }
 
 // DPIFLookups is the per-datapath lookup outcome breakdown.
@@ -42,9 +64,20 @@ type DPIFLookups struct {
 	Lost   int64
 }
 
-// ParseDPIF decodes the JSON-RPC response from dpif/show. Only column-0
-// lines that contain at least one `key:int` pair are treated as datapath
-// rows; indented lines and unrecognised keys are ignored.
+// portLineRE matches "<name> <portno>/<ofportno>: (<type>...)".
+// Examples:
+//
+//	eth0 1/3: (system)
+//	br-int 65534/2: (internal)
+//	patch-foo-to-br-int 29/none: (patch: peer=patch-br-int-to-foo)
+//	ovn-aaaaaa-0 208/4: (geneve: csum=true, key=flow, remote_ip=192.0.2.21)
+var portLineRE = regexp.MustCompile(`^(\S+)\s+(\d+)/(\S+):\s*\(([^:)]+)`)
+
+// ParseDPIF decodes the JSON-RPC response from dpif/show. Column-0
+// lines describe datapaths and their inline lookup stats; lines
+// indented two spaces are bridge headers (`<bridge_name>:`); lines
+// indented four spaces are port entries belonging to the most recent
+// bridge.
 func ParseDPIF(raw json.RawMessage) (*DPIF, error) {
 	var text string
 	if err := json.Unmarshal(raw, &text); err != nil {
@@ -52,42 +85,99 @@ func ParseDPIF(raw json.RawMessage) (*DPIF, error) {
 	}
 	out := &DPIF{Datapaths: make(map[string]*DPIFDatapath)}
 
+	var curDP *DPIFDatapath
+	var curBridge *DPIFBridge
 	for _, line := range strings.Split(text, "\n") {
-		if line == "" || strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
+		if line == "" {
 			continue
 		}
-		// "name@type: hit:H missed:M [lost:L]"
-		name, rest, ok := strings.Cut(line, ":")
-		if !ok || name == "" {
-			continue
-		}
-
-		dp := &DPIFDatapath{Name: name}
-		seen := false
-		for _, tok := range strings.Fields(rest) {
-			k, v, ok := strings.Cut(tok, ":")
+		switch {
+		case strings.HasPrefix(line, "    "):
+			if curBridge == nil {
+				continue
+			}
+			port, ok := parseDPIFPortLine(strings.TrimLeft(line, " \t"))
 			if !ok {
 				continue
 			}
-			n, err := strconv.ParseInt(v, 10, 64)
-			if err != nil {
+			curBridge.Ports = append(curBridge.Ports, port)
+
+		case strings.HasPrefix(line, "  "):
+			if curDP == nil {
 				continue
 			}
-			switch k {
-			case "hit":
-				dp.Lookups.Hit = n
-				seen = true
-			case "missed":
-				dp.Lookups.Missed = n
-				seen = true
-			case "lost":
-				dp.Lookups.Lost = n
-				seen = true
+			trimmed := strings.TrimSpace(line)
+			if !strings.HasSuffix(trimmed, ":") {
+				continue
 			}
-		}
-		if seen {
-			out.Datapaths[name] = dp
+			name := strings.TrimSuffix(trimmed, ":")
+			curBridge = &DPIFBridge{Name: name}
+			if curDP.Bridges == nil {
+				curDP.Bridges = make(map[string]*DPIFBridge)
+			}
+			curDP.Bridges[name] = curBridge
+
+		default:
+			dp, ok := parseDPIFDatapathLine(line)
+			if !ok {
+				continue
+			}
+			out.Datapaths[dp.Name] = dp
+			curDP = dp
+			curBridge = nil
 		}
 	}
 	return out, nil
+}
+
+func parseDPIFDatapathLine(line string) (*DPIFDatapath, bool) {
+	// "name@type: hit:H missed:M [lost:L]"
+	name, rest, ok := strings.Cut(line, ":")
+	if !ok || name == "" {
+		return nil, false
+	}
+	dp := &DPIFDatapath{Name: name}
+	seen := false
+	for _, tok := range strings.Fields(rest) {
+		k, v, ok := strings.Cut(tok, ":")
+		if !ok {
+			continue
+		}
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			continue
+		}
+		switch k {
+		case "hit":
+			dp.Lookups.Hit = n
+			seen = true
+		case "missed":
+			dp.Lookups.Missed = n
+			seen = true
+		case "lost":
+			dp.Lookups.Lost = n
+			seen = true
+		}
+	}
+	if !seen {
+		return nil, false
+	}
+	return dp, true
+}
+
+func parseDPIFPortLine(line string) (DPIFPort, bool) {
+	m := portLineRE.FindStringSubmatch(line)
+	if m == nil {
+		return DPIFPort{}, false
+	}
+	portNo, err := strconv.ParseInt(m[2], 10, 64)
+	if err != nil {
+		return DPIFPort{}, false
+	}
+	return DPIFPort{
+		Name:     m[1],
+		PortNo:   portNo,
+		OFPortNo: m[3],
+		Type:     strings.TrimSpace(m[4]),
+	}, true
 }
