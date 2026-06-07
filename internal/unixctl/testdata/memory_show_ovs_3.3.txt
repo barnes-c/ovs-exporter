@@ -1,0 +1,1 @@
+handlers:32 idl-cells-Open_vSwitch:16667 ofconns:4 ports:291 revalidators:9 rules:64243 udpif keys:117

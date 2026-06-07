@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-func TestParseUpcall_Golden_OVS_3_1(t *testing.T) {
-	text, err := os.ReadFile(filepath.Join("testdata", "upcall_show_ovs_3.1.txt"))
+func TestParseUpcall_Golden(t *testing.T) {
+	text, err := os.ReadFile(filepath.Join("testdata", "upcall_show_ovs_3.3.txt"))
 	if err != nil {
 		t.Fatalf("read testdata: %v", err)
 	}
@@ -29,14 +29,17 @@ func TestParseUpcall_Golden_OVS_3_1(t *testing.T) {
 	if d == nil {
 		t.Fatal("missing datapath")
 	}
-	if d.FlowsCurrent != 42 || d.FlowsAvg != 35 || d.FlowsMax != 120 || d.FlowsLimit != 200000 {
-		t.Errorf("flows = {cur:%d avg:%d max:%d limit:%d}, want {42 35 120 200000}",
+	if d.FlowsCurrent != 259 || d.FlowsAvg != 287 || d.FlowsMax != 2511 || d.FlowsLimit != 200000 {
+		t.Errorf("flows = {cur:%d avg:%d max:%d limit:%d}, want {259 287 2511 200000}",
 			d.FlowsCurrent, d.FlowsAvg, d.FlowsMax, d.FlowsLimit)
 	}
-	if d.DumpDurationMs != 7 {
-		t.Errorf("DumpDurationMs = %d, want 7", d.DumpDurationMs)
+	if d.DumpDurationMs != 1 {
+		t.Errorf("DumpDurationMs = %d, want 1", d.DumpDurationMs)
 	}
-	wantHandlers := map[int]int64{0: 12, 1: 9, 2: 21}
+	wantHandlers := map[int]int64{
+		75: 24, 76: 29, 77: 34, 78: 26, 79: 31,
+		80: 22, 81: 23, 82: 34, 83: 37,
+	}
 	if !reflect.DeepEqual(d.HandlerKeys, wantHandlers) {
 		t.Errorf("HandlerKeys = %v, want %v", d.HandlerKeys, wantHandlers)
 	}

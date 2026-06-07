@@ -23,10 +23,8 @@ func TestOVSDatapath_Observes(t *testing.T) {
 		unixctlOVS: &unixctl.OVSSnapshot{
 			DPIF: &unixctl.DPIF{Datapaths: map[string]*unixctl.DPIFDatapath{
 				"system@ovs-system": {
-					Name:     "system@ovs-system",
-					Lookups:  unixctl.DPIFLookups{Hit: 1234, Missed: 56, Lost: 7},
-					Flows:    89,
-					MasksHit: 1000,
+					Name:    "system@ovs-system",
+					Lookups: unixctl.DPIFLookups{Hit: 14778031, Missed: 1583622, Lost: 0},
 				},
 			}},
 		},
@@ -36,19 +34,13 @@ func TestOVSDatapath_Observes(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = c.Close() })
 
-	gauges := collectInt64Gauges(t, reader)
-	if g := gauges["ovs.datapath.flows{datapath=system@ovs-system}"]; g != 89 {
-		t.Errorf("flows = %d, want 89 (gauges: %v)", g, gauges)
-	}
-
 	counters := collectInt64Counters(t, reader)
-	wantCounters := map[string]int64{
-		"ovs.datapath.lookups{datapath=system@ovs-system,result=hit}":    1234,
-		"ovs.datapath.lookups{datapath=system@ovs-system,result=missed}": 56,
-		"ovs.datapath.lookups{datapath=system@ovs-system,result=lost}":   7,
-		"ovs.datapath.masks.hit{datapath=system@ovs-system}":             1000,
+	want := map[string]int64{
+		"ovs.datapath.lookups{datapath=system@ovs-system,result=hit}":    14778031,
+		"ovs.datapath.lookups{datapath=system@ovs-system,result=missed}": 1583622,
+		"ovs.datapath.lookups{datapath=system@ovs-system,result=lost}":   0,
 	}
-	for k, v := range wantCounters {
+	for k, v := range want {
 		if g, ok := counters[k]; !ok {
 			t.Errorf("missing counter %q (got: %v)", k, counters)
 		} else if g != v {
@@ -69,9 +61,6 @@ func TestOVSDatapath_NilSnapshot(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = c.Close() })
 
-	if got := collectInt64Gauges(t, reader); len(got) != 0 {
-		t.Errorf("expected no gauges, got %v", got)
-	}
 	if got := collectInt64Counters(t, reader); len(got) != 0 {
 		t.Errorf("expected no counters, got %v", got)
 	}

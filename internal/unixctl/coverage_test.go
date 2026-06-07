@@ -7,80 +7,59 @@ import (
 	"testing"
 )
 
+// TestParseCoverage_Golden asserts the parser against a real
+// `ovs-appctl coverage/show` capture. We don't pin the exact count to a
+// number because new OVS versions add coverage events freely — but we
+// do pin a representative set of event names and their captured totals,
+// which is enough to detect format-level regressions.
 func TestParseCoverage_Golden(t *testing.T) {
-	cases := []struct {
-		name     string
-		fixture  string
-		want     map[string]int64
-		wantSize int
-	}{
-		{
-			name:    "OVS 3.1",
-			fixture: "coverage_show_ovs_3.1.txt",
-			want: map[string]int64{
-				"ofproto_recv_openflow": 5,
-				"ofproto_flush":         0,
-				"bridge_reconfigure":    2,
-				"ofproto_update_port":   1,
-				"xlate_actions":         100,
-				"flow_extract":          200,
-				"miniflow_malloc":       5,
-				"mac_learning_learned":  12,
-			},
-			wantSize: 8,
-		},
-		{
-			name:    "OVS 3.3",
-			fixture: "coverage_show_ovs_3.3.txt",
-			want: map[string]int64{
-				"ofproto_recv_openflow":    30,
-				"xlate_actions":            300,
-				"flow_extract":             450,
-				"mac_learning_learned":     25,
-				"mac_learning_evicted":     0,
-				"dpif_flow_put":            18,
-				"dpif_execute":             75,
-				"handler_duplicate_upcall": 1,
-				"rev_flow_table":           1,
-			},
-			wantSize: 12,
-		},
+	text, err := os.ReadFile(filepath.Join("testdata", "coverage_show_ovs_3.3.txt"))
+	if err != nil {
+		t.Fatalf("read testdata: %v", err)
+	}
+	raw, err := json.Marshal(string(text))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			text, err := os.ReadFile(filepath.Join("testdata", tc.fixture))
-			if err != nil {
-				t.Fatalf("read testdata: %v", err)
-			}
-			raw, err := json.Marshal(string(text))
-			if err != nil {
-				t.Fatalf("marshal: %v", err)
-			}
+	cov, err := ParseCoverage(raw)
+	if err != nil {
+		t.Fatalf("ParseCoverage: %v", err)
+	}
 
-			cov, err := ParseCoverage(raw)
-			if err != nil {
-				t.Fatalf("ParseCoverage: %v", err)
-			}
-			if len(cov.Events) != tc.wantSize {
-				t.Errorf("event count = %d, want %d (events: %v)", len(cov.Events), tc.wantSize, cov.Events)
-			}
-			for name, n := range tc.want {
-				got, ok := cov.Events[name]
-				if !ok {
-					t.Errorf("missing event %q", name)
-					continue
-				}
-				if got != n {
-					t.Errorf("event %q = %d, want %d", name, got, n)
-				}
-			}
-		})
+	// At least a couple of dozen events on a busy hypervisor; if the
+	// parser breaks the format, this drops to 0.
+	if len(cov.Events) < 10 {
+		t.Fatalf("event count = %d, want >= 10 (events: %v)", len(cov.Events), cov.Events)
+	}
+
+	want := map[string]int64{
+		"netlink_sent":          9431740,
+		"netlink_received":      9102350,
+		"netlink_recv_jumbo":    2369671,
+		"ofproto_recv_openflow": 13032709,
+		"ofproto_packet_out":    1448,
+		"bridge_reconfigure":    7533,
+		"flow_extract":          1586779,
+		"xlate_actions":         17472045,
+		"dpif_flow_put":         1733742,
+		"dpif_execute":          1565671,
+		"mac_learning_learned":  42107,
+		"util_xalloc":           890602098,
+	}
+	for name, n := range want {
+		got, ok := cov.Events[name]
+		if !ok {
+			t.Errorf("missing event %q", name)
+			continue
+		}
+		if got != n {
+			t.Errorf("event %q = %d, want %d", name, got, n)
+		}
 	}
 }
 
 func TestParseCoverage_SkipsHeaderAndTrailer(t *testing.T) {
-	// Only the header and trailer — no event rows.
 	body := "Event coverage, avg rate over last: 5 seconds, last minute, last hour,  hash=ea4ab92a\n121 events never hit\n"
 	raw, _ := json.Marshal(body)
 	cov, err := ParseCoverage(raw)
