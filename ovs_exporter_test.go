@@ -44,7 +44,7 @@ func setupOTelForTest(t *testing.T) *otel.Result {
 
 func TestBuildHandlerRoutes(t *testing.T) {
 	res := setupOTelForTest(t)
-	h, err := buildHandler(res, "/metrics")
+	h, err := buildHandler(res, "/metrics", nil)
 	if err != nil {
 		t.Fatalf("buildHandler: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestBuildHandlerRoutes(t *testing.T) {
 // --web.telemetry-path=/, which suppresses the landing page.
 func TestBuildHandlerMetricsAtRoot(t *testing.T) {
 	res := setupOTelForTest(t)
-	h, err := buildHandler(res, "/")
+	h, err := buildHandler(res, "/", nil)
 	if err != nil {
 		t.Fatalf("buildHandler: %v", err)
 	}
