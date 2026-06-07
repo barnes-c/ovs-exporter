@@ -7,4 +7,7 @@ package unixctl
 // scrape package, so callers must treat snapshot fields as immutable.
 type OVSSnapshot struct {
 	Coverage *Coverage
+	Memory   *Memory
+	DPIF     *DPIF
+	Upcall   *Upcall
 }

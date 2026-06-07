@@ -1,0 +1,8 @@
+system@ovs-system:
+  lookups: hit:1234 missed:56 lost:7
+  flows: 89
+  masks: hit:1000 total:5 hit/pkt:11.24
+  port 0: ovs-system (internal)
+  port 1: br-int (internal)
+  port 2: br-ex (internal)
+  port 3: vxlan_sys_4789 (vxlan)
