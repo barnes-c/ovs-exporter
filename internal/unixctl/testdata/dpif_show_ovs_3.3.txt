@@ -2,11 +2,11 @@ system@ovs-system: hit:14778031 missed:1583622
   br-eth0:
     br-eth0 65534/1: (internal)
     eth0 1/3: (system)
-    patch-provnet-6cc98109-b01b-4a0b-8141-8d0ce1d3d261-to-br-int 29/none: (patch: peer=patch-br-int-to-provnet-6cc98109-b01b-4a0b-8141-8d0ce1d3d261)
+    patch-provnet-00000000-0000-0000-0000-000000000001-to-br-int 29/none: (patch: peer=patch-br-int-to-provnet-00000000-0000-0000-0000-000000000001)
   br-int:
     br-int 65534/2: (internal)
-    ovn-009e55-0 208/4: (geneve: csum=true, key=flow, remote_ip=12.123.123.21)
-    ovn-015d70-0 95/4: (geneve: csum=true, key=flow, remote_ip=12.123.123.22)
-    ovn-019365-0 139/4: (geneve: csum=true, key=flow, remote_ip=12.123.123.23)
-    ovn-0459fc-0 109/4: (geneve: csum=true, key=flow, remote_ip=12.123.123.24)
-    patch-br-int-to-provnet-6cc98109-b01b-4a0b-8141-8d0ce1d3d261 965/none: (patch: peer=patch-provnet-6cc98109-b01b-4a0b-8141-8d0ce1d3d261-to-br-int)
+    ovn-aaaaaa-0 208/4: (geneve: csum=true, key=flow, remote_ip=192.0.2.21)
+    ovn-bbbbbb-0 95/4: (geneve: csum=true, key=flow, remote_ip=192.0.2.22)
+    ovn-cccccc-0 139/4: (geneve: csum=true, key=flow, remote_ip=192.0.2.23)
+    ovn-dddddd-0 109/4: (geneve: csum=true, key=flow, remote_ip=192.0.2.24)
+    patch-br-int-to-provnet-00000000-0000-0000-0000-000000000001 965/none: (patch: peer=patch-provnet-00000000-0000-0000-0000-000000000001-to-br-int)
