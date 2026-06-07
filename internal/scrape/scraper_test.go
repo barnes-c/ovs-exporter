@@ -164,6 +164,49 @@ func TestRun_StopsOnContextCancel(t *testing.T) {
 	}
 }
 
+func TestStale_NoScrapeYet(t *testing.T) {
+	s, _ := New(Config[fakeSnap]{Name: "x", Refresh: nullRefresh, Logger: discardLogger()})
+	if err := s.Stale(time.Minute); err == nil {
+		t.Error("expected error before any scrape attempt")
+	}
+}
+
+func TestStale_LastFailed(t *testing.T) {
+	s, _ := New(Config[fakeSnap]{
+		Name:   "x",
+		Logger: discardLogger(),
+		Refresh: func(context.Context) (*fakeSnap, error) {
+			return nil, errors.New("boom")
+		},
+	})
+	_ = s.Refresh(context.Background())
+	if err := s.Stale(time.Minute); err == nil {
+		t.Error("expected error after failed scrape")
+	}
+}
+
+func TestStale_FreshSucceeds(t *testing.T) {
+	s, _ := New(Config[fakeSnap]{Name: "x", Refresh: nullRefresh, Logger: discardLogger()})
+	if err := s.Refresh(context.Background()); err != nil {
+		t.Fatalf("Refresh: %v", err)
+	}
+	if err := s.Stale(time.Minute); err != nil {
+		t.Errorf("Stale = %v, want nil for fresh successful scrape", err)
+	}
+}
+
+func TestStale_TooOld(t *testing.T) {
+	s, _ := New(Config[fakeSnap]{Name: "x", Refresh: nullRefresh, Logger: discardLogger()})
+	if err := s.Refresh(context.Background()); err != nil {
+		t.Fatalf("Refresh: %v", err)
+	}
+	// Zero maxAge: any positive age qualifies as stale.
+	time.Sleep(2 * time.Millisecond)
+	if err := s.Stale(time.Microsecond); err == nil {
+		t.Error("expected stale error when age exceeds maxAge")
+	}
+}
+
 func TestSnapshot_ConcurrentReadsDuringRefresh(t *testing.T) {
 	// Refresh is intentionally slow; concurrent Snapshot() calls must not
 	// block on the same mutex (atomic.Pointer guarantees lock-free reads).

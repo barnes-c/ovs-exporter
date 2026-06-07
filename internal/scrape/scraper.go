@@ -12,6 +12,7 @@ package scrape
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync/atomic"
 	"time"
@@ -85,6 +86,25 @@ func (s *Scraper[T]) Outcome() Outcome {
 		return *o
 	}
 	return Outcome{}
+}
+
+// Stale returns nil when the last scrape succeeded and is no older than
+// maxAge, otherwise a descriptive error. Plugs into the probes.Checker
+// interface via a CheckerFunc wrapper so the probes package stays free
+// of an import on internal/scrape. The caller owns the policy (what age
+// counts as stale).
+func (s *Scraper[T]) Stale(maxAge time.Duration) error {
+	o := s.Outcome()
+	if o.Time.IsZero() {
+		return errors.New("scrape: no attempt yet")
+	}
+	if !o.Success {
+		return fmt.Errorf("scrape: last attempt failed: %v", o.Err)
+	}
+	if age := time.Since(o.Time); age > maxAge {
+		return fmt.Errorf("scrape: stale (%v > %v)", age, maxAge)
+	}
+	return nil
 }
 
 // Refresh runs a single refresh synchronously. Exposed so tests and

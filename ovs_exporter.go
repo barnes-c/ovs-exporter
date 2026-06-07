@@ -275,32 +275,17 @@ func main() {
 	os.Exit(exitCode)
 }
 
-// buildReadyChecks wires the readyz dependency checks. ovsdb checks the
-// live connection state; unixctl-ovs checks the last scrape outcome and
-// flags stale-beyond-3-intervals as not-ready.
+// buildReadyChecks wires the readyz dependency checks. Each subsystem
+// owns its own health verdict (Client.Healthy, Scraper.Stale); this
+// function just decides which checks to expose under what name and what
+// staleness threshold counts as not-ready.
 func buildReadyChecks(ovsClient *ovsdb.Client, ovsScraper *scrape.Scraper[unixctl.OVSSnapshot], ttl time.Duration) map[string]probes.Checker {
 	return map[string]probes.Checker{
 		"ovsdb": probes.CheckerFunc(func(context.Context) error {
-			if ovsClient == nil {
-				return errors.New("ovsdb client not initialised")
-			}
-			if !ovsClient.Connected() {
-				return errors.New("ovsdb client not connected")
-			}
-			return nil
+			return ovsClient.Healthy()
 		}),
 		"unixctl-ovs": probes.CheckerFunc(func(context.Context) error {
-			outcome := ovsScraper.Outcome()
-			if outcome.Time.IsZero() {
-				return errors.New("no scrape attempted yet")
-			}
-			if !outcome.Success {
-				return fmt.Errorf("last scrape failed: %v", outcome.Err)
-			}
-			if age := time.Since(outcome.Time); age > 3*ttl {
-				return fmt.Errorf("last scrape stale (%v > %v)", age, 3*ttl)
-			}
-			return nil
+			return ovsScraper.Stale(3 * ttl)
 		}),
 	}
 }

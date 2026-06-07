@@ -15,6 +15,7 @@ package ovsdb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -118,6 +119,20 @@ func (c *Client) Close() error {
 // active connection.
 func (c *Client) Connected() bool {
 	return c.inner != nil && c.inner.Connected()
+}
+
+// Healthy returns nil when the client is initialised and connected,
+// otherwise a descriptive error. Plugs into the probes.Checker interface
+// via a CheckerFunc wrapper so the probes package stays free of an
+// import on internal/ovsdb.
+func (c *Client) Healthy() error {
+	if c == nil || c.inner == nil {
+		return errors.New("ovsdb: client not initialised")
+	}
+	if !c.inner.Connected() {
+		return errors.New("ovsdb: client not connected")
+	}
+	return nil
 }
 
 // View returns a read-locked accessor over the in-process cache. Returns nil
