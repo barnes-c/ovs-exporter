@@ -20,9 +20,13 @@ import (
 	"github.com/prometheus/exporter-toolkit/web"
 	"github.com/prometheus/exporter-toolkit/web/kingpinflag"
 
-	_ "github.com/barnes-c/ovs-exporter/collector"
+	"github.com/barnes-c/ovs-exporter/collector"
+	"github.com/barnes-c/ovs-exporter/internal/datasource"
 	"github.com/barnes-c/ovs-exporter/internal/otel"
+	"github.com/barnes-c/ovs-exporter/internal/ovsdb"
 	"github.com/barnes-c/ovs-exporter/internal/probes"
+	"github.com/barnes-c/ovs-exporter/internal/scrape"
+	"github.com/barnes-c/ovs-exporter/internal/unixctl"
 )
 
 var (
@@ -36,8 +40,18 @@ var (
 		"The target number of CPUs Go will run on (GOMAXPROCS).",
 	).Envar("GOMAXPROCS").Default("1").Int()
 
-	// OVS / OVN data-source flags and --cache.ttl will be added by their
-	// consuming tasks: T5 / T8 (ovs.*), T9 (cache.ttl), T16 (ovn.*).
+	ovsDBSocket = kingpin.Flag(
+		"ovs.db-socket",
+		"libovsdb endpoint for the Open_vSwitch database.",
+	).Default("unix:/var/run/openvswitch/db.sock").String()
+	ovsRunDir = kingpin.Flag(
+		"ovs.run-dir",
+		"Directory containing the ovs-vswitchd unix control socket and pid file.",
+	).Default("/var/run/openvswitch").String()
+	cacheTTL = kingpin.Flag(
+		"cache.ttl",
+		"TTL between successive unixctl scrapes. ovsdb data is monitor-cached and ignores this.",
+	).Default("15s").Duration()
 
 	otelMetricsExporter = kingpin.Flag(
 		"otel.metrics-exporter",
@@ -78,14 +92,11 @@ var (
 // buildHandler wires the HTTP routes served by the exporter: the OTel
 // Prometheus handler at metricsPath, healthz/readyz probes, and the
 // exporter-toolkit landing page at "/" (unless metricsPath itself is "/").
-// readyz is currently registered with no checks (always 200) — actual
-// checks for libovsdb connectivity and unixctl scrape freshness will be
-// wired when those data sources land in main.
-func buildHandler(res *otel.Result, metricsPath string) (http.Handler, error) {
+func buildHandler(res *otel.Result, metricsPath string, readyChecks map[string]probes.Checker) (http.Handler, error) {
 	mux := http.NewServeMux()
 	mux.Handle(metricsPath, res.PromHandler)
 	mux.Handle("/healthz", probes.Health())
-	mux.Handle("/readyz", probes.Ready(nil))
+	mux.Handle("/readyz", probes.Ready(readyChecks))
 
 	if metricsPath != "/" {
 		landing, err := web.NewLandingPage(web.LandingConfig{
@@ -146,11 +157,66 @@ func main() {
 		logger = otelResult.Logger
 	}
 
-	// TODO(T5/T8/T9/T11): discover unixctl sockets, connect libovsdb clients,
-	// start the TTL scraper, instantiate probes that gate readyz on those
-	// states.
+	// Connect libovsdb (best-effort). A failed connect leaves OVS data
+	// nil — collectors that read it will simply emit no points until the
+	// next time we try (operator restart). The wrapper has its own
+	// reconnect loop once Connect succeeds.
+	connectCtx, connectCancel := context.WithTimeout(rootCtx, 10*time.Second)
+	ovsClient, err := ovsdb.Connect(connectCtx, ovsdb.Config{
+		Endpoint: *ovsDBSocket,
+		Logger:   logger.With("component", "ovsdb"),
+		Tracer:   otelResult.Tracer,
+	})
+	connectCancel()
+	if err != nil {
+		logger.Warn("ovsdb client connect failed; OVS-table metrics will be empty until restart",
+			"endpoint", *ovsDBSocket, "err", err)
+		ovsClient = nil
+	}
 
-	mux, err := buildHandler(otelResult, *metricsPath)
+	// unixctl client + ovs scraper. The client is lazy-connected; the
+	// scraper's first refresh will dial the socket.
+	unixClient, err := unixctl.New(unixctl.Config{
+		RunDir: *ovsRunDir,
+		Daemon: "ovs-vswitchd",
+		Logger: logger.With("component", "unixctl-ovs"),
+	})
+	if err != nil {
+		logger.Error("Failed to create unixctl client", "err", err)
+		os.Exit(1)
+	}
+
+	ovsScraper, err := scrape.New(scrape.Config[unixctl.OVSSnapshot]{
+		Name:     "ovs",
+		Interval: *cacheTTL,
+		Refresh:  datasource.NewOVSRefresh(unixClient, logger.With("component", "scrape-ovs")),
+		Logger:   logger.With("component", "scrape-ovs"),
+		Tracer:   otelResult.Tracer,
+	})
+	if err != nil {
+		logger.Error("Failed to create OVS scraper", "err", err)
+		os.Exit(1)
+	}
+
+	src := datasource.New(ovsClient, ovsScraper)
+
+	group, err := collector.NewGroup(logger)
+	if err != nil {
+		logger.Error("Failed to instantiate collectors", "err", err)
+		os.Exit(1)
+	}
+	if err := group.RegisterAll(otelResult.Meter, src); err != nil {
+		logger.Error("Failed to register collectors", "err", err)
+		os.Exit(1)
+	}
+	logger.Info("Collectors registered", "names", group.Names())
+
+	scrapeCtx, scrapeCancel := context.WithCancel(rootCtx)
+	go ovsScraper.Run(scrapeCtx)
+
+	readyChecks := buildReadyChecks(ovsClient, ovsScraper, *cacheTTL)
+
+	mux, err := buildHandler(otelResult, *metricsPath, readyChecks)
 	if err != nil {
 		logger.Error("Failed to build HTTP handler", "err", err)
 		os.Exit(1)
@@ -185,13 +251,56 @@ func main() {
 		logger.Info("Shutdown signal received")
 	}
 
+	scrapeCancel()
+
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		fmt.Fprintf(os.Stderr, "HTTP shutdown error: %v\n", err)
 	}
+	if err := group.Close(); err != nil {
+		fmt.Fprintf(os.Stderr, "Collector close error: %v\n", err)
+	}
+	if err := unixClient.Close(); err != nil {
+		fmt.Fprintf(os.Stderr, "unixctl close error: %v\n", err)
+	}
+	if ovsClient != nil {
+		if err := ovsClient.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "ovsdb close error: %v\n", err)
+		}
+	}
 	if err := otelResult.Shutdown(shutdownCtx); err != nil {
 		fmt.Fprintf(os.Stderr, "OTel shutdown error: %v\n", err)
 	}
 	os.Exit(exitCode)
+}
+
+// buildReadyChecks wires the readyz dependency checks. ovsdb checks the
+// live connection state; unixctl-ovs checks the last scrape outcome and
+// flags stale-beyond-3-intervals as not-ready.
+func buildReadyChecks(ovsClient *ovsdb.Client, ovsScraper *scrape.Scraper[unixctl.OVSSnapshot], ttl time.Duration) map[string]probes.Checker {
+	return map[string]probes.Checker{
+		"ovsdb": probes.CheckerFunc(func(context.Context) error {
+			if ovsClient == nil {
+				return errors.New("ovsdb client not initialised")
+			}
+			if !ovsClient.Connected() {
+				return errors.New("ovsdb client not connected")
+			}
+			return nil
+		}),
+		"unixctl-ovs": probes.CheckerFunc(func(context.Context) error {
+			outcome := ovsScraper.Outcome()
+			if outcome.Time.IsZero() {
+				return errors.New("no scrape attempted yet")
+			}
+			if !outcome.Success {
+				return fmt.Errorf("last scrape failed: %v", outcome.Err)
+			}
+			if age := time.Since(outcome.Time); age > 3*ttl {
+				return fmt.Errorf("last scrape stale (%v > %v)", age, 3*ttl)
+			}
+			return nil
+		}),
+	}
 }
