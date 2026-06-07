@@ -4,7 +4,7 @@ go 1.26.4
 
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
-	github.com/cenkalti/backoff/v4 v4.1.3
+	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/go-logr/logr v1.4.3
 	github.com/ovn-org/libovsdb v0.7.0
