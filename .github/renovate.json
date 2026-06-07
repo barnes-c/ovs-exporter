@@ -7,6 +7,7 @@
   ],
   "labels": ["dependencies"],
   "pinDigests": true,
+  "minimumReleaseAge": "7 days",
   "packageRules": [
     {
       "matchUpdateTypes": ["patch"],
