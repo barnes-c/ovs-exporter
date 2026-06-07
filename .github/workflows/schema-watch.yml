@@ -1,0 +1,99 @@
+---
+name: upstream schema watch
+on:
+  schedule:
+    # Weekly, Monday 07:00 UTC.
+    - cron: "0 7 * * MON"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  vswitch:
+    name: vswitch.ovsschema drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Compute drift report
+        # Compares our vendored floor schema (schemas/vswitch.ovsschema,
+        # OVS 3.1) against upstream openvswitch/ovs@main. Lists tables and
+        # columns the upstream has that we don't model.
+        id: diff
+        run: |
+          set -euo pipefail
+
+          curl -fsSL \
+            https://raw.githubusercontent.com/openvswitch/ovs/main/vswitchd/vswitch.ovsschema \
+            -o /tmp/upstream.ovsschema
+
+          ours_version=$(jq -r '.version' schemas/vswitch.ovsschema)
+          upstream_version=$(jq -r '.version' /tmp/upstream.ovsschema)
+
+          jq -r '.tables | to_entries[] | .key as $t | .value.columns | keys[] | "\($t).\(.)"' schemas/vswitch.ovsschema | sort > /tmp/ours.txt
+          jq -r '.tables | to_entries[] | .key as $t | .value.columns | keys[] | "\($t).\(.)"' /tmp/upstream.ovsschema | sort > /tmp/upstream.txt
+
+          comm -13 /tmp/ours.txt /tmp/upstream.txt > /tmp/added.txt
+          comm -23 /tmp/ours.txt /tmp/upstream.txt > /tmp/removed.txt
+
+          added_count=$(wc -l < /tmp/added.txt | tr -d ' ')
+          removed_count=$(wc -l < /tmp/removed.txt | tr -d ' ')
+
+          {
+            echo "## Upstream schema drift"
+            echo
+            echo "- **Vendored floor:** \`$ours_version\` (OVS 3.1)"
+            echo "- **Upstream main:** \`$upstream_version\`"
+            echo
+            echo "### Columns added in upstream ($added_count)"
+            echo
+            if [ "$added_count" -gt 0 ]; then
+              echo '```'
+              cat /tmp/added.txt
+              echo '```'
+              echo
+              echo "Review each to decide whether ovs-exporter should expose a metric for it."
+            else
+              echo "_None — vendored floor is current with upstream._"
+            fi
+            echo
+            echo "### Columns removed in upstream ($removed_count)"
+            echo
+            if [ "$removed_count" -gt 0 ]; then
+              echo "**Unexpected** — OVS schema changes are usually additive."
+              echo '```'
+              cat /tmp/removed.txt
+              echo '```'
+            else
+              echo "_None._"
+            fi
+          } > /tmp/issue_body.md
+
+          if [ "$added_count" -gt 0 ] || [ "$removed_count" -gt 0 ]; then
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or update tracking issue
+        if: steps.diff.outputs.drift == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          title="OVS upstream schema drift"
+          existing=$(gh issue list --label schema-watch --state open \
+            --json number,title \
+            --jq '.[] | select(.title == "'"$title"'") | .number' | head -1)
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file /tmp/issue_body.md
+          else
+            gh issue create \
+              --title "$title" \
+              --label schema-watch \
+              --body-file /tmp/issue_body.md
+          fi

@@ -15,7 +15,5 @@ type IPFIX struct {
 	ObsPointID         *int              `ovsdb:"obs_point_id"`
 	OtherConfig        map[string]string `ovsdb:"other_config"`
 	Sampling           *int              `ovsdb:"sampling"`
-	StatsInterval      *int              `ovsdb:"stats_interval"`
 	Targets            []string          `ovsdb:"targets"`
-	TemplateInterval   *int              `ovsdb:"template_interval"`
 }
