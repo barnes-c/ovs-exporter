@@ -11,12 +11,6 @@ services:
     volumes:
       - ovs-runtime:/var/run/openvswitch
       - ovs-logs:/var/log/openvswitch
-    healthcheck:
-      test: ["CMD", "ovs-vsctl", "show"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 10s
 
   exporter:
     build:
