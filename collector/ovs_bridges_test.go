@@ -11,9 +11,12 @@ import (
 	"github.com/barnes-c/ovs-exporter/internal/ovsdb/ovsmodel"
 )
 
-// fakeOVSView yields a fixed bridge set; other methods are no-ops.
+// fakeOVSView yields fixed bridge/port/interface sets. Unset slices iterate
+// zero times. OpenvSwitch is unused by collectors under test today.
 type fakeOVSView struct {
-	bridges []*ovsmodel.Bridge
+	bridges    []*ovsmodel.Bridge
+	ports      []*ovsmodel.Port
+	interfaces []*ovsmodel.Interface
 }
 
 func (f *fakeOVSView) Bridges(fn func(*ovsmodel.Bridge)) {
@@ -21,9 +24,17 @@ func (f *fakeOVSView) Bridges(fn func(*ovsmodel.Bridge)) {
 		fn(b)
 	}
 }
-func (f *fakeOVSView) Ports(func(*ovsmodel.Port))           {}
-func (f *fakeOVSView) Interfaces(func(*ovsmodel.Interface)) {}
-func (f *fakeOVSView) OpenvSwitch() *ovsmodel.OpenvSwitch   { return nil }
+func (f *fakeOVSView) Ports(fn func(*ovsmodel.Port)) {
+	for _, p := range f.ports {
+		fn(p)
+	}
+}
+func (f *fakeOVSView) Interfaces(fn func(*ovsmodel.Interface)) {
+	for _, i := range f.interfaces {
+		fn(i)
+	}
+}
+func (f *fakeOVSView) OpenvSwitch() *ovsmodel.OpenvSwitch { return nil }
 
 // fakeDataSource implements DataSource for collector tests.
 type fakeDataSource struct {
