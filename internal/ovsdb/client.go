@@ -19,7 +19,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff/v5"
 	"github.com/go-logr/logr"
 	libovsdb "github.com/ovn-kubernetes/libovsdb/client"
 	"go.opentelemetry.io/otel/trace"
