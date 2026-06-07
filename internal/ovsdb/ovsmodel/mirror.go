@@ -9,7 +9,6 @@ const MirrorTable = "Mirror"
 type Mirror struct {
 	UUID          string            `ovsdb:"_uuid"`
 	ExternalIDs   map[string]string `ovsdb:"external_ids"`
-	Filter        *string           `ovsdb:"filter"`
 	Name          string            `ovsdb:"name"`
 	OutputPort    *string           `ovsdb:"output_port"`
 	OutputVLAN    *int              `ovsdb:"output_vlan"`

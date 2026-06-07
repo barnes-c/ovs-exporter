@@ -37,7 +37,7 @@ func FullDatabaseModel() (model.ClientDBModel, error) {
 
 var schema = `{
   "name": "Open_vSwitch",
-  "version": "8.8.0",
+  "version": "8.3.1",
   "tables": {
     "AutoAttach": {
       "columns": {
@@ -350,17 +350,6 @@ var schema = `{
             "max": "unlimited"
           }
         },
-        "limit": {
-          "type": {
-            "key": {
-              "type": "integer",
-              "minInteger": 0,
-              "maxInteger": 4294967295
-            },
-            "min": 0,
-            "max": 1
-          }
-        },
         "timeout_policy": {
           "type": {
             "key": {
@@ -571,17 +560,6 @@ var schema = `{
             "max": "unlimited"
           }
         },
-        "ct_zone_default_limit": {
-          "type": {
-            "key": {
-              "type": "integer",
-              "minInteger": 0,
-              "maxInteger": 4294967295
-            },
-            "min": 0,
-            "max": 1
-          }
-        },
         "ct_zones": {
           "type": {
             "key": {
@@ -654,17 +632,6 @@ var schema = `{
             "key": {
               "type": "uuid",
               "refTable": "IPFIX"
-            },
-            "min": 0,
-            "max": 1
-          }
-        },
-        "local_group_id": {
-          "type": {
-            "key": {
-              "type": "integer",
-              "minInteger": 0,
-              "maxInteger": 4294967295
             },
             "min": 0,
             "max": 1
@@ -743,7 +710,7 @@ var schema = `{
               "type": "string"
             },
             "min": 0,
-            "max": 4
+            "max": 3
           }
         }
       }
@@ -829,17 +796,6 @@ var schema = `{
             "max": 1
           }
         },
-        "stats_interval": {
-          "type": {
-            "key": {
-              "type": "integer",
-              "minInteger": 1,
-              "maxInteger": 3600
-            },
-            "min": 0,
-            "max": 1
-          }
-        },
         "targets": {
           "type": {
             "key": {
@@ -847,17 +803,6 @@ var schema = `{
             },
             "min": 0,
             "max": "unlimited"
-          }
-        },
-        "template_interval": {
-          "type": {
-            "key": {
-              "type": "integer",
-              "minInteger": 1,
-              "maxInteger": 3600
-            },
-            "min": 0,
-            "max": 1
           }
         }
       }
@@ -1347,15 +1292,6 @@ var schema = `{
             },
             "min": 0,
             "max": "unlimited"
-          }
-        },
-        "filter": {
-          "type": {
-            "key": {
-              "type": "string"
-            },
-            "min": 0,
-            "max": 1
           }
         },
         "name": {
