@@ -9,8 +9,8 @@ const SSLTable = "SSL"
 type SSL struct {
 	UUID            string            `ovsdb:"_uuid"`
 	BootstrapCaCert bool              `ovsdb:"bootstrap_ca_cert"`
-	CaCert          string            `ovsdb:"ca_cert"`
-	Certificate     string            `ovsdb:"certificate"`
-	ExternalIDs     map[string]string `ovsdb:"external_ids"`
-	PrivateKey      string            `ovsdb:"private_key"`
+	CaCert          string            `ovsdb:"ca_cert" validate:"max=9223372036854775806"`
+	Certificate     string            `ovsdb:"certificate" validate:"max=9223372036854775806"`
+	ExternalIDs     map[string]string `ovsdb:"external_ids" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	PrivateKey      string            `ovsdb:"private_key" validate:"max=9223372036854775806"`
 }

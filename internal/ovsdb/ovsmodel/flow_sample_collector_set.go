@@ -9,7 +9,7 @@ const FlowSampleCollectorSetTable = "Flow_Sample_Collector_Set"
 type FlowSampleCollectorSet struct {
 	UUID        string            `ovsdb:"_uuid"`
 	Bridge      string            `ovsdb:"bridge"`
-	ExternalIDs map[string]string `ovsdb:"external_ids"`
-	ID          int               `ovsdb:"id"`
+	ExternalIDs map[string]string `ovsdb:"external_ids" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	ID          int               `ovsdb:"id" validate:"min=0,max=4294967295"`
 	IPFIX       *string           `ovsdb:"ipfix"`
 }

@@ -17,12 +17,12 @@ var (
 // Manager defines an object in Manager table
 type Manager struct {
 	UUID            string                 `ovsdb:"_uuid"`
-	ConnectionMode  *ManagerConnectionMode `ovsdb:"connection_mode"`
-	ExternalIDs     map[string]string      `ovsdb:"external_ids"`
-	InactivityProbe *int                   `ovsdb:"inactivity_probe"`
+	ConnectionMode  *ManagerConnectionMode `ovsdb:"connection_mode" validate:"omitempty,max=9223372036854775806,oneof='in-band' 'out-of-band'"`
+	ExternalIDs     map[string]string      `ovsdb:"external_ids" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	InactivityProbe *int                   `ovsdb:"inactivity_probe" validate:"omitempty,max=9223372036854775806"`
 	IsConnected     bool                   `ovsdb:"is_connected"`
-	MaxBackoff      *int                   `ovsdb:"max_backoff"`
-	OtherConfig     map[string]string      `ovsdb:"other_config"`
-	Status          map[string]string      `ovsdb:"status"`
-	Target          string                 `ovsdb:"target"`
+	MaxBackoff      *int                   `ovsdb:"max_backoff" validate:"omitempty,min=1000,max=9223372036854775806"`
+	OtherConfig     map[string]string      `ovsdb:"other_config" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	Status          map[string]string      `ovsdb:"status" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	Target          string                 `ovsdb:"target" validate:"max=9223372036854775806"`
 }

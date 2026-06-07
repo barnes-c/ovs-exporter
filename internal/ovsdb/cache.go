@@ -1,7 +1,7 @@
 package ovsdb
 
 import (
-	"github.com/ovn-org/libovsdb/cache"
+	"github.com/ovn-kubernetes/libovsdb/cache"
 
 	"github.com/barnes-c/ovs-exporter/internal/ovsdb/ovsmodel"
 )

@@ -8,8 +8,8 @@ const QoSTable = "QoS"
 // QoS defines an object in QoS table
 type QoS struct {
 	UUID        string            `ovsdb:"_uuid"`
-	ExternalIDs map[string]string `ovsdb:"external_ids"`
-	OtherConfig map[string]string `ovsdb:"other_config"`
-	Queues      map[int]string    `ovsdb:"queues"`
-	Type        string            `ovsdb:"type"`
+	ExternalIDs map[string]string `ovsdb:"external_ids" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	OtherConfig map[string]string `ovsdb:"other_config" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	Queues      map[int]string    `ovsdb:"queues" validate:"dive,keys,min=0,max=4294967295"`
+	Type        string            `ovsdb:"type" validate:"max=9223372036854775806"`
 }

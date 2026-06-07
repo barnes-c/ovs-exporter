@@ -8,10 +8,10 @@ const SFlowTable = "sFlow"
 // SFlow defines an object in sFlow table
 type SFlow struct {
 	UUID        string            `ovsdb:"_uuid"`
-	Agent       *string           `ovsdb:"agent"`
-	ExternalIDs map[string]string `ovsdb:"external_ids"`
-	Header      *int              `ovsdb:"header"`
-	Polling     *int              `ovsdb:"polling"`
-	Sampling    *int              `ovsdb:"sampling"`
-	Targets     []string          `ovsdb:"targets"`
+	Agent       *string           `ovsdb:"agent" validate:"omitempty,max=9223372036854775806"`
+	ExternalIDs map[string]string `ovsdb:"external_ids" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	Header      *int              `ovsdb:"header" validate:"omitempty,max=9223372036854775806"`
+	Polling     *int              `ovsdb:"polling" validate:"omitempty,max=9223372036854775806"`
+	Sampling    *int              `ovsdb:"sampling" validate:"omitempty,max=9223372036854775806"`
+	Targets     []string          `ovsdb:"targets" validate:"min=1,dive,max=9223372036854775806"`
 }

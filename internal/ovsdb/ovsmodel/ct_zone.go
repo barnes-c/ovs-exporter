@@ -8,6 +8,6 @@ const CTZoneTable = "CT_Zone"
 // CTZone defines an object in CT_Zone table
 type CTZone struct {
 	UUID          string            `ovsdb:"_uuid"`
-	ExternalIDs   map[string]string `ovsdb:"external_ids"`
+	ExternalIDs   map[string]string `ovsdb:"external_ids" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
 	TimeoutPolicy *string           `ovsdb:"timeout_policy"`
 }
