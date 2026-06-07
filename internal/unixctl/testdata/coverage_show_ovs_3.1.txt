@@ -1,0 +1,10 @@
+Event coverage, avg rate over last: 5 seconds, last minute, last hour,  hash=ea4ab92a
+ofproto_recv_openflow            0.0/sec     0.083/sec        0.0014/sec   total: 5
+ofproto_flush                    0.0/sec     0.000/sec        0.0000/sec   total: 0
+bridge_reconfigure               0.0/sec     0.000/sec        0.0000/sec   total: 2
+ofproto_update_port              0.0/sec     0.000/sec        0.0000/sec   total: 1
+xlate_actions                    1.4/sec     0.833/sec        0.0556/sec   total: 100
+flow_extract                     2.4/sec     1.500/sec        0.1000/sec   total: 200
+miniflow_malloc                  0.0/sec     0.083/sec        0.0014/sec   total: 5
+mac_learning_learned             0.4/sec     0.083/sec        0.0014/sec   total: 12
+121 events never hit
