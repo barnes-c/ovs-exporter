@@ -8,30 +8,48 @@ import (
 )
 
 // Memory is the parsed output of `ovs-appctl memory/show`. The command
-// emits a single line of space-separated `key:N` tokens reported by the
-// ovs-vswitchd memory_report handler (handlers, ofconns, ports, rules,
-// revalidators, etc.).
+// emits a single line of `key:N` pairs reported by the ovs-vswitchd
+// memory_report handler — most keys are single tokens (handlers,
+// ofconns, ports, rules, revalidators) but a few are space-separated
+// (notably `udpif keys`).
 type Memory struct {
 	Usage map[string]int64
 }
 
-// ParseMemory decodes the JSON-RPC response from memory/show. Tokens
-// without a colon or with a non-integer value are skipped rather than
-// failing the whole parse; future OVS versions may add new keys that
-// don't yet match the simple `name:int` shape.
+// ParseMemory decodes the JSON-RPC response from memory/show.
+//
+// The format treats whitespace as a token separator, but a *key* can span
+// multiple tokens — ovs-vswitchd emits e.g. "udpif keys:117" where the
+// real key is "udpif keys". We therefore walk tokens left to right,
+// accumulating non-value-bearing tokens until we hit a `name:int` whose
+// integer suffix closes the current key. Tokens whose suffix doesn't
+// parse as int are treated as another name fragment so the next
+// `name:int` joins them. Future OVS releases adding new keys with extra
+// embedded spaces will surface here without code changes.
 func ParseMemory(raw json.RawMessage) (*Memory, error) {
 	var text string
 	if err := json.Unmarshal(raw, &text); err != nil {
 		return nil, fmt.Errorf("unixctl: memory: unmarshal: %w", err)
 	}
 	out := make(map[string]int64)
+	var parts []string
 	for _, tok := range strings.Fields(text) {
-		name, val, ok := strings.Cut(tok, ":")
-		if !ok {
+		idx := strings.LastIndex(tok, ":")
+		if idx < 0 {
+			parts = append(parts, tok)
 			continue
 		}
-		n, err := strconv.ParseInt(val, 10, 64)
+		n, err := strconv.ParseInt(tok[idx+1:], 10, 64)
 		if err != nil {
+			parts = append(parts, tok)
+			continue
+		}
+		if pre := tok[:idx]; pre != "" {
+			parts = append(parts, pre)
+		}
+		name := strings.Join(parts, " ")
+		parts = nil
+		if name == "" {
 			continue
 		}
 		out[name] = n

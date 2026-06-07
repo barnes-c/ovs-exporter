@@ -1,0 +1,14 @@
+system@ovs-system:
+  flows         : (current 259) (avg 287) (max 2511) (limit 200000)
+  dump duration : 1ms
+  ufid enabled : true
+
+  75: (keys 24)
+  76: (keys 29)
+  77: (keys 34)
+  78: (keys 26)
+  79: (keys 31)
+  80: (keys 22)
+  81: (keys 23)
+  82: (keys 34)
+  83: (keys 37)

@@ -12,18 +12,23 @@ func init() {
 	registerCollector("ovs-datapath", DefaultEnabled, newOVSDatapathCollector)
 }
 
-// ovsDatapathCollector exposes per-datapath flow and lookup stats from
-// `ovs-appctl dpif/show`. Per-port lines from the same output are
-// intentionally not exposed here — the per-datapath-interface info
-// gauges live behind the opt-in --collector.ovs-datapath-interfaces flag
-// in T13 due to cardinality.
+// ovsDatapathCollector exposes the per-datapath lookup counters from
+// `ovs-appctl dpif/show`.
+//
+// The original plan also called for `ovs.datapath.flows` (current flow
+// count) and `ovs.datapath.masks.hit`, but those fields aren't in
+// dpif/show — they belong to `dpctl/show` output. They'll land as a
+// separate collector backed by a second appctl call once the
+// scrape-orchestrator wiring supports multi-method snapshots.
+//
+// Per-port topology lines from the same dpif/show response are routed
+// to the opt-in `--collector.ovs-datapath-interfaces` collector in T13
+// because their cardinality scales with port count.
 type ovsDatapathCollector struct {
 	log *slog.Logger
 	src DataSource
 
-	flows    metric.Int64ObservableGauge
-	lookups  metric.Int64ObservableCounter
-	masksHit metric.Int64ObservableCounter
+	lookups metric.Int64ObservableCounter
 
 	registration metric.Registration
 }
@@ -38,29 +43,16 @@ func (c *ovsDatapathCollector) Register(meter metric.Meter, src DataSource) erro
 	c.src = src
 
 	var err error
-	if c.flows, err = meter.Int64ObservableGauge(
-		"ovs.datapath.flows",
-		metric.WithDescription("Current number of flows installed in an OVS datapath."),
-		metric.WithUnit("{flow}"),
-	); err != nil {
-		return err
-	}
-	if c.lookups, err = meter.Int64ObservableCounter(
+	c.lookups, err = meter.Int64ObservableCounter(
 		"ovs.datapath.lookups",
 		metric.WithDescription("Cumulative datapath flow lookups, partitioned by outcome (hit, missed, lost)."),
 		metric.WithUnit("{lookup}"),
-	); err != nil {
-		return err
-	}
-	if c.masksHit, err = meter.Int64ObservableCounter(
-		"ovs.datapath.masks.hit",
-		metric.WithDescription("Cumulative mask-cache hits on an OVS datapath."),
-		metric.WithUnit("{hit}"),
-	); err != nil {
+	)
+	if err != nil {
 		return err
 	}
 
-	c.registration, err = meter.RegisterCallback(c.observe, c.flows, c.lookups, c.masksHit)
+	c.registration, err = meter.RegisterCallback(c.observe, c.lookups)
 	return err
 }
 
@@ -70,9 +62,6 @@ func (c *ovsDatapathCollector) observe(_ context.Context, o metric.Observer) err
 		return nil
 	}
 	for name, d := range snap.DPIF.Datapaths {
-		dpAttr := metric.WithAttributes(attribute.String("datapath", name))
-		o.ObserveInt64(c.flows, d.Flows, dpAttr)
-		o.ObserveInt64(c.masksHit, d.MasksHit, dpAttr)
 		o.ObserveInt64(c.lookups, d.Lookups.Hit,
 			metric.WithAttributes(
 				attribute.String("datapath", name),
