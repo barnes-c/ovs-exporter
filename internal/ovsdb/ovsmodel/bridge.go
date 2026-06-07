@@ -26,24 +26,24 @@ type Bridge struct {
 	UUID                string            `ovsdb:"_uuid"`
 	AutoAttach          *string           `ovsdb:"auto_attach"`
 	Controller          []string          `ovsdb:"controller"`
-	DatapathID          *string           `ovsdb:"datapath_id"`
-	DatapathType        string            `ovsdb:"datapath_type"`
-	DatapathVersion     string            `ovsdb:"datapath_version"`
-	ExternalIDs         map[string]string `ovsdb:"external_ids"`
-	FailMode            *BridgeFailMode   `ovsdb:"fail_mode"`
-	FloodVLANs          []int             `ovsdb:"flood_vlans"`
-	FlowTables          map[int]string    `ovsdb:"flow_tables"`
+	DatapathID          *string           `ovsdb:"datapath_id" validate:"omitempty,max=9223372036854775806"`
+	DatapathType        string            `ovsdb:"datapath_type" validate:"max=9223372036854775806"`
+	DatapathVersion     string            `ovsdb:"datapath_version" validate:"max=9223372036854775806"`
+	ExternalIDs         map[string]string `ovsdb:"external_ids" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	FailMode            *BridgeFailMode   `ovsdb:"fail_mode" validate:"omitempty,max=9223372036854775806,oneof='standalone' 'secure'"`
+	FloodVLANs          []int             `ovsdb:"flood_vlans" validate:"max=4096,dive,min=0,max=4095"`
+	FlowTables          map[int]string    `ovsdb:"flow_tables" validate:"dive,keys,min=0,max=254"`
 	IPFIX               *string           `ovsdb:"ipfix"`
 	McastSnoopingEnable bool              `ovsdb:"mcast_snooping_enable"`
 	Mirrors             []string          `ovsdb:"mirrors"`
-	Name                string            `ovsdb:"name"`
+	Name                string            `ovsdb:"name" validate:"max=9223372036854775806"`
 	Netflow             *string           `ovsdb:"netflow"`
-	OtherConfig         map[string]string `ovsdb:"other_config"`
+	OtherConfig         map[string]string `ovsdb:"other_config" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
 	Ports               []string          `ovsdb:"ports"`
-	Protocols           []BridgeProtocols `ovsdb:"protocols"`
+	Protocols           []BridgeProtocols `ovsdb:"protocols" validate:"dive,max=9223372036854775806,oneof='OpenFlow10' 'OpenFlow11' 'OpenFlow12' 'OpenFlow13' 'OpenFlow14' 'OpenFlow15'"`
 	RSTPEnable          bool              `ovsdb:"rstp_enable"`
-	RSTPStatus          map[string]string `ovsdb:"rstp_status"`
+	RSTPStatus          map[string]string `ovsdb:"rstp_status" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
 	Sflow               *string           `ovsdb:"sflow"`
-	Status              map[string]string `ovsdb:"status"`
+	Status              map[string]string `ovsdb:"status" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
 	STPEnable           bool              `ovsdb:"stp_enable"`
 }

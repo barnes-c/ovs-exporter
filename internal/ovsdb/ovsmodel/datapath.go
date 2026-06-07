@@ -8,8 +8,8 @@ const DatapathTable = "Datapath"
 // Datapath defines an object in Datapath table
 type Datapath struct {
 	UUID            string            `ovsdb:"_uuid"`
-	Capabilities    map[string]string `ovsdb:"capabilities"`
-	CTZones         map[int]string    `ovsdb:"ct_zones"`
-	DatapathVersion string            `ovsdb:"datapath_version"`
-	ExternalIDs     map[string]string `ovsdb:"external_ids"`
+	Capabilities    map[string]string `ovsdb:"capabilities" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	CTZones         map[int]string    `ovsdb:"ct_zones" validate:"dive,keys,min=0,max=65535"`
+	DatapathVersion string            `ovsdb:"datapath_version" validate:"max=9223372036854775806"`
+	ExternalIDs     map[string]string `ovsdb:"external_ids" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
 }

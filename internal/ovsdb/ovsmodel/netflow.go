@@ -8,10 +8,10 @@ const NetFlowTable = "NetFlow"
 // NetFlow defines an object in NetFlow table
 type NetFlow struct {
 	UUID             string            `ovsdb:"_uuid"`
-	ActiveTimeout    int               `ovsdb:"active_timeout"`
+	ActiveTimeout    int               `ovsdb:"active_timeout" validate:"min=-1,max=9223372036854775806"`
 	AddIDToInterface bool              `ovsdb:"add_id_to_interface"`
-	EngineID         *int              `ovsdb:"engine_id"`
-	EngineType       *int              `ovsdb:"engine_type"`
-	ExternalIDs      map[string]string `ovsdb:"external_ids"`
-	Targets          []string          `ovsdb:"targets"`
+	EngineID         *int              `ovsdb:"engine_id" validate:"omitempty,min=0,max=255"`
+	EngineType       *int              `ovsdb:"engine_type" validate:"omitempty,min=0,max=255"`
+	ExternalIDs      map[string]string `ovsdb:"external_ids" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	Targets          []string          `ovsdb:"targets" validate:"min=1,dive,max=9223372036854775806"`
 }

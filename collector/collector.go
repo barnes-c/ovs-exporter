@@ -9,6 +9,8 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 	"go.opentelemetry.io/otel/metric"
+
+	"github.com/barnes-c/ovs-exporter/internal/ovsdb/ovsmodel"
 )
 
 // Collector is the interface every sub-collector implements.
@@ -43,9 +45,19 @@ type DataSource interface {
 	UnixCtlNorthd() UnixCtlSnapshot
 }
 
-// View types. Methods are added incrementally by the consuming tasks.
+// OVSView is the read API over the Open_vSwitch DB cache. Methods correspond
+// to tables the collectors iterate; each takes a callback invoked once per
+// row. Iteration order is unspecified. Calling on a nil receiver, or when
+// the underlying cache is not populated, is safe and yields no callbacks.
+type OVSView interface {
+	Bridges(fn func(*ovsmodel.Bridge))
+	Ports(fn func(*ovsmodel.Port))
+	Interfaces(fn func(*ovsmodel.Interface))
+	OpenvSwitch() *ovsmodel.OpenvSwitch
+}
+
+// OVN view placeholders, populated by T17 when the OVN libovsdb clients land.
 type (
-	OVSView         interface{}
 	OVNNBView       interface{}
 	OVNSBView       interface{}
 	UnixCtlSnapshot interface{}

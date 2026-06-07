@@ -26,39 +26,39 @@ var (
 // Interface defines an object in Interface table
 type Interface struct {
 	UUID                      string                     `ovsdb:"_uuid"`
-	AdminState                *InterfaceAdminState       `ovsdb:"admin_state"`
-	BFD                       map[string]string          `ovsdb:"bfd"`
-	BFDStatus                 map[string]string          `ovsdb:"bfd_status"`
+	AdminState                *InterfaceAdminState       `ovsdb:"admin_state" validate:"omitempty,max=9223372036854775806,oneof='up' 'down'"`
+	BFD                       map[string]string          `ovsdb:"bfd" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	BFDStatus                 map[string]string          `ovsdb:"bfd_status" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
 	CFMFault                  *bool                      `ovsdb:"cfm_fault"`
-	CFMFaultStatus            []string                   `ovsdb:"cfm_fault_status"`
-	CFMFlapCount              *int                       `ovsdb:"cfm_flap_count"`
-	CFMHealth                 *int                       `ovsdb:"cfm_health"`
-	CFMMpid                   *int                       `ovsdb:"cfm_mpid"`
-	CFMRemoteMpids            []int                      `ovsdb:"cfm_remote_mpids"`
-	CFMRemoteOpstate          *InterfaceCFMRemoteOpstate `ovsdb:"cfm_remote_opstate"`
-	Duplex                    *InterfaceDuplex           `ovsdb:"duplex"`
-	Error                     *string                    `ovsdb:"error"`
-	ExternalIDs               map[string]string          `ovsdb:"external_ids"`
-	Ifindex                   *int                       `ovsdb:"ifindex"`
-	IngressPolicingBurst      int                        `ovsdb:"ingress_policing_burst"`
-	IngressPolicingKpktsBurst int                        `ovsdb:"ingress_policing_kpkts_burst"`
-	IngressPolicingKpktsRate  int                        `ovsdb:"ingress_policing_kpkts_rate"`
-	IngressPolicingRate       int                        `ovsdb:"ingress_policing_rate"`
+	CFMFaultStatus            []string                   `ovsdb:"cfm_fault_status" validate:"dive,max=9223372036854775806"`
+	CFMFlapCount              *int                       `ovsdb:"cfm_flap_count" validate:"omitempty,max=9223372036854775806"`
+	CFMHealth                 *int                       `ovsdb:"cfm_health" validate:"omitempty,min=0,max=100"`
+	CFMMpid                   *int                       `ovsdb:"cfm_mpid" validate:"omitempty,max=9223372036854775806"`
+	CFMRemoteMpids            []int                      `ovsdb:"cfm_remote_mpids" validate:"dive,max=9223372036854775806"`
+	CFMRemoteOpstate          *InterfaceCFMRemoteOpstate `ovsdb:"cfm_remote_opstate" validate:"omitempty,max=9223372036854775806,oneof='up' 'down'"`
+	Duplex                    *InterfaceDuplex           `ovsdb:"duplex" validate:"omitempty,max=9223372036854775806,oneof='half' 'full'"`
+	Error                     *string                    `ovsdb:"error" validate:"omitempty,max=9223372036854775806"`
+	ExternalIDs               map[string]string          `ovsdb:"external_ids" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	Ifindex                   *int                       `ovsdb:"ifindex" validate:"omitempty,min=0,max=4294967295"`
+	IngressPolicingBurst      int                        `ovsdb:"ingress_policing_burst" validate:"min=0,max=9223372036854775806"`
+	IngressPolicingKpktsBurst int                        `ovsdb:"ingress_policing_kpkts_burst" validate:"min=0,max=9223372036854775806"`
+	IngressPolicingKpktsRate  int                        `ovsdb:"ingress_policing_kpkts_rate" validate:"min=0,max=9223372036854775806"`
+	IngressPolicingRate       int                        `ovsdb:"ingress_policing_rate" validate:"min=0,max=9223372036854775806"`
 	LACPCurrent               *bool                      `ovsdb:"lacp_current"`
-	LinkResets                *int                       `ovsdb:"link_resets"`
-	LinkSpeed                 *int                       `ovsdb:"link_speed"`
-	LinkState                 *InterfaceLinkState        `ovsdb:"link_state"`
-	LLDP                      map[string]string          `ovsdb:"lldp"`
-	MAC                       *string                    `ovsdb:"mac"`
-	MACInUse                  *string                    `ovsdb:"mac_in_use"`
-	MTU                       *int                       `ovsdb:"mtu"`
-	MTURequest                *int                       `ovsdb:"mtu_request"`
-	Name                      string                     `ovsdb:"name"`
-	Ofport                    *int                       `ovsdb:"ofport"`
-	OfportRequest             *int                       `ovsdb:"ofport_request"`
-	Options                   map[string]string          `ovsdb:"options"`
-	OtherConfig               map[string]string          `ovsdb:"other_config"`
-	Statistics                map[string]int             `ovsdb:"statistics"`
-	Status                    map[string]string          `ovsdb:"status"`
-	Type                      string                     `ovsdb:"type"`
+	LinkResets                *int                       `ovsdb:"link_resets" validate:"omitempty,max=9223372036854775806"`
+	LinkSpeed                 *int                       `ovsdb:"link_speed" validate:"omitempty,max=9223372036854775806"`
+	LinkState                 *InterfaceLinkState        `ovsdb:"link_state" validate:"omitempty,max=9223372036854775806,oneof='up' 'down'"`
+	LLDP                      map[string]string          `ovsdb:"lldp" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	MAC                       *string                    `ovsdb:"mac" validate:"omitempty,max=9223372036854775806"`
+	MACInUse                  *string                    `ovsdb:"mac_in_use" validate:"omitempty,max=9223372036854775806"`
+	MTU                       *int                       `ovsdb:"mtu" validate:"omitempty,max=9223372036854775806"`
+	MTURequest                *int                       `ovsdb:"mtu_request" validate:"omitempty,min=1,max=9223372036854775806"`
+	Name                      string                     `ovsdb:"name" validate:"max=9223372036854775806"`
+	Ofport                    *int                       `ovsdb:"ofport" validate:"omitempty,max=9223372036854775806"`
+	OfportRequest             *int                       `ovsdb:"ofport_request" validate:"omitempty,min=1,max=65279"`
+	Options                   map[string]string          `ovsdb:"options" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	OtherConfig               map[string]string          `ovsdb:"other_config" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	Statistics                map[string]int             `ovsdb:"statistics" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	Status                    map[string]string          `ovsdb:"status" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	Type                      string                     `ovsdb:"type" validate:"max=9223372036854775806"`
 }

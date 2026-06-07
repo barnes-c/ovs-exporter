@@ -9,20 +9,20 @@ const OpenvSwitchTable = "Open_vSwitch"
 type OpenvSwitch struct {
 	UUID            string            `ovsdb:"_uuid"`
 	Bridges         []string          `ovsdb:"bridges"`
-	CurCfg          int               `ovsdb:"cur_cfg"`
-	DatapathTypes   []string          `ovsdb:"datapath_types"`
-	Datapaths       map[string]string `ovsdb:"datapaths"`
-	DbVersion       *string           `ovsdb:"db_version"`
+	CurCfg          int               `ovsdb:"cur_cfg" validate:"max=9223372036854775806"`
+	DatapathTypes   []string          `ovsdb:"datapath_types" validate:"dive,max=9223372036854775806"`
+	Datapaths       map[string]string `ovsdb:"datapaths" validate:"dive,keys,max=9223372036854775806"`
+	DbVersion       *string           `ovsdb:"db_version" validate:"omitempty,max=9223372036854775806"`
 	DpdkInitialized bool              `ovsdb:"dpdk_initialized"`
-	DpdkVersion     *string           `ovsdb:"dpdk_version"`
-	ExternalIDs     map[string]string `ovsdb:"external_ids"`
-	IfaceTypes      []string          `ovsdb:"iface_types"`
+	DpdkVersion     *string           `ovsdb:"dpdk_version" validate:"omitempty,max=9223372036854775806"`
+	ExternalIDs     map[string]string `ovsdb:"external_ids" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	IfaceTypes      []string          `ovsdb:"iface_types" validate:"dive,max=9223372036854775806"`
 	ManagerOptions  []string          `ovsdb:"manager_options"`
-	NextCfg         int               `ovsdb:"next_cfg"`
-	OtherConfig     map[string]string `ovsdb:"other_config"`
-	OVSVersion      *string           `ovsdb:"ovs_version"`
+	NextCfg         int               `ovsdb:"next_cfg" validate:"max=9223372036854775806"`
+	OtherConfig     map[string]string `ovsdb:"other_config" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	OVSVersion      *string           `ovsdb:"ovs_version" validate:"omitempty,max=9223372036854775806"`
 	SSL             *string           `ovsdb:"ssl"`
-	Statistics      map[string]string `ovsdb:"statistics"`
-	SystemType      *string           `ovsdb:"system_type"`
-	SystemVersion   *string           `ovsdb:"system_version"`
+	Statistics      map[string]string `ovsdb:"statistics" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	SystemType      *string           `ovsdb:"system_type" validate:"omitempty,max=9223372036854775806"`
+	SystemVersion   *string           `ovsdb:"system_version" validate:"omitempty,max=9223372036854775806"`
 }

@@ -21,7 +21,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/go-logr/logr"
-	libovsdb "github.com/ovn-org/libovsdb/client"
+	libovsdb "github.com/ovn-kubernetes/libovsdb/client"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/barnes-c/ovs-exporter/internal/ovsdb/ovsmodel"

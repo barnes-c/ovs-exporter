@@ -24,21 +24,21 @@ var (
 // Controller defines an object in Controller table
 type Controller struct {
 	UUID                 string                    `ovsdb:"_uuid"`
-	ConnectionMode       *ControllerConnectionMode `ovsdb:"connection_mode"`
-	ControllerBurstLimit *int                      `ovsdb:"controller_burst_limit"`
-	ControllerQueueSize  *int                      `ovsdb:"controller_queue_size"`
-	ControllerRateLimit  *int                      `ovsdb:"controller_rate_limit"`
+	ConnectionMode       *ControllerConnectionMode `ovsdb:"connection_mode" validate:"omitempty,max=9223372036854775806,oneof='in-band' 'out-of-band'"`
+	ControllerBurstLimit *int                      `ovsdb:"controller_burst_limit" validate:"omitempty,min=25,max=9223372036854775806"`
+	ControllerQueueSize  *int                      `ovsdb:"controller_queue_size" validate:"omitempty,min=1,max=512"`
+	ControllerRateLimit  *int                      `ovsdb:"controller_rate_limit" validate:"omitempty,min=100,max=9223372036854775806"`
 	EnableAsyncMessages  *bool                     `ovsdb:"enable_async_messages"`
-	ExternalIDs          map[string]string         `ovsdb:"external_ids"`
-	InactivityProbe      *int                      `ovsdb:"inactivity_probe"`
+	ExternalIDs          map[string]string         `ovsdb:"external_ids" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	InactivityProbe      *int                      `ovsdb:"inactivity_probe" validate:"omitempty,max=9223372036854775806"`
 	IsConnected          bool                      `ovsdb:"is_connected"`
-	LocalGateway         *string                   `ovsdb:"local_gateway"`
-	LocalIP              *string                   `ovsdb:"local_ip"`
-	LocalNetmask         *string                   `ovsdb:"local_netmask"`
-	MaxBackoff           *int                      `ovsdb:"max_backoff"`
-	OtherConfig          map[string]string         `ovsdb:"other_config"`
-	Role                 *ControllerRole           `ovsdb:"role"`
-	Status               map[string]string         `ovsdb:"status"`
-	Target               string                    `ovsdb:"target"`
-	Type                 *ControllerType           `ovsdb:"type"`
+	LocalGateway         *string                   `ovsdb:"local_gateway" validate:"omitempty,max=9223372036854775806"`
+	LocalIP              *string                   `ovsdb:"local_ip" validate:"omitempty,max=9223372036854775806"`
+	LocalNetmask         *string                   `ovsdb:"local_netmask" validate:"omitempty,max=9223372036854775806"`
+	MaxBackoff           *int                      `ovsdb:"max_backoff" validate:"omitempty,min=1000,max=9223372036854775806"`
+	OtherConfig          map[string]string         `ovsdb:"other_config" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	Role                 *ControllerRole           `ovsdb:"role" validate:"omitempty,max=9223372036854775806,oneof='other' 'master' 'slave'"`
+	Status               map[string]string         `ovsdb:"status" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	Target               string                    `ovsdb:"target" validate:"max=9223372036854775806"`
+	Type                 *ControllerType           `ovsdb:"type" validate:"omitempty,max=9223372036854775806,oneof='primary' 'service'"`
 }

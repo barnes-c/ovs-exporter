@@ -17,10 +17,10 @@ var (
 // FlowTable defines an object in Flow_Table table
 type FlowTable struct {
 	UUID           string                   `ovsdb:"_uuid"`
-	ExternalIDs    map[string]string        `ovsdb:"external_ids"`
-	FlowLimit      *int                     `ovsdb:"flow_limit"`
-	Groups         []string                 `ovsdb:"groups"`
-	Name           *string                  `ovsdb:"name"`
-	OverflowPolicy *FlowTableOverflowPolicy `ovsdb:"overflow_policy"`
-	Prefixes       []string                 `ovsdb:"prefixes"`
+	ExternalIDs    map[string]string        `ovsdb:"external_ids" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	FlowLimit      *int                     `ovsdb:"flow_limit" validate:"omitempty,min=0,max=9223372036854775806"`
+	Groups         []string                 `ovsdb:"groups" validate:"dive,max=9223372036854775806"`
+	Name           *string                  `ovsdb:"name" validate:"omitempty,max=9223372036854775806"`
+	OverflowPolicy *FlowTableOverflowPolicy `ovsdb:"overflow_policy" validate:"omitempty,max=9223372036854775806,oneof='refuse' 'evict'"`
+	Prefixes       []string                 `ovsdb:"prefixes" validate:"max=3,dive,max=9223372036854775806"`
 }

@@ -8,7 +8,7 @@ const AutoAttachTable = "AutoAttach"
 // AutoAttach defines an object in AutoAttach table
 type AutoAttach struct {
 	UUID              string      `ovsdb:"_uuid"`
-	Mappings          map[int]int `ovsdb:"mappings"`
-	SystemDescription string      `ovsdb:"system_description"`
-	SystemName        string      `ovsdb:"system_name"`
+	Mappings          map[int]int `ovsdb:"mappings" validate:"dive,keys,min=0,max=16777215,endkeys,min=0,max=4095"`
+	SystemDescription string      `ovsdb:"system_description" validate:"max=9223372036854775806"`
+	SystemName        string      `ovsdb:"system_name" validate:"max=9223372036854775806"`
 }

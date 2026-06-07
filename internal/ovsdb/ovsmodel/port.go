@@ -28,26 +28,26 @@ var (
 // Port defines an object in Port table
 type Port struct {
 	UUID            string            `ovsdb:"_uuid"`
-	BondActiveSlave *string           `ovsdb:"bond_active_slave"`
-	BondDowndelay   int               `ovsdb:"bond_downdelay"`
+	BondActiveSlave *string           `ovsdb:"bond_active_slave" validate:"omitempty,max=9223372036854775806"`
+	BondDowndelay   int               `ovsdb:"bond_downdelay" validate:"max=9223372036854775806"`
 	BondFakeIface   bool              `ovsdb:"bond_fake_iface"`
-	BondMode        *PortBondMode     `ovsdb:"bond_mode"`
-	BondUpdelay     int               `ovsdb:"bond_updelay"`
-	CVLANs          []int             `ovsdb:"cvlans"`
-	ExternalIDs     map[string]string `ovsdb:"external_ids"`
+	BondMode        *PortBondMode     `ovsdb:"bond_mode" validate:"omitempty,max=9223372036854775806,oneof='balance-tcp' 'balance-slb' 'active-backup'"`
+	BondUpdelay     int               `ovsdb:"bond_updelay" validate:"max=9223372036854775806"`
+	CVLANs          []int             `ovsdb:"cvlans" validate:"max=4096,dive,min=0,max=4095"`
+	ExternalIDs     map[string]string `ovsdb:"external_ids" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
 	FakeBridge      bool              `ovsdb:"fake_bridge"`
-	Interfaces      []string          `ovsdb:"interfaces"`
-	LACP            *PortLACP         `ovsdb:"lacp"`
-	MAC             *string           `ovsdb:"mac"`
-	Name            string            `ovsdb:"name"`
-	OtherConfig     map[string]string `ovsdb:"other_config"`
+	Interfaces      []string          `ovsdb:"interfaces" validate:"min=1"`
+	LACP            *PortLACP         `ovsdb:"lacp" validate:"omitempty,max=9223372036854775806,oneof='active' 'passive' 'off'"`
+	MAC             *string           `ovsdb:"mac" validate:"omitempty,max=9223372036854775806"`
+	Name            string            `ovsdb:"name" validate:"max=9223372036854775806"`
+	OtherConfig     map[string]string `ovsdb:"other_config" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
 	Protected       bool              `ovsdb:"protected"`
 	QOS             *string           `ovsdb:"qos"`
-	RSTPStatistics  map[string]int    `ovsdb:"rstp_statistics"`
-	RSTPStatus      map[string]string `ovsdb:"rstp_status"`
-	Statistics      map[string]int    `ovsdb:"statistics"`
-	Status          map[string]string `ovsdb:"status"`
-	Tag             *int              `ovsdb:"tag"`
-	Trunks          []int             `ovsdb:"trunks"`
-	VLANMode        *PortVLANMode     `ovsdb:"vlan_mode"`
+	RSTPStatistics  map[string]int    `ovsdb:"rstp_statistics" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	RSTPStatus      map[string]string `ovsdb:"rstp_status" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	Statistics      map[string]int    `ovsdb:"statistics" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	Status          map[string]string `ovsdb:"status" validate:"dive,keys,max=9223372036854775806,endkeys,max=9223372036854775806"`
+	Tag             *int              `ovsdb:"tag" validate:"omitempty,min=0,max=4095"`
+	Trunks          []int             `ovsdb:"trunks" validate:"max=4096,dive,min=0,max=4095"`
+	VLANMode        *PortVLANMode     `ovsdb:"vlan_mode" validate:"omitempty,max=9223372036854775806,oneof='trunk' 'access' 'native-tagged' 'native-untagged' 'dot1q-tunnel'"`
 }
