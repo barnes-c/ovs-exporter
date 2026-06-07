@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/barnes-c/ovs-exporter/internal/ovsdb/ovsmodel"
+	"github.com/barnes-c/ovs-exporter/internal/unixctl"
 )
 
 // fakeOVSView yields fixed bridge/port/interface sets. Unset slices iterate
@@ -38,14 +39,15 @@ func (f *fakeOVSView) OpenvSwitch() *ovsmodel.OpenvSwitch { return nil }
 
 // fakeDataSource implements DataSource for collector tests.
 type fakeDataSource struct {
-	ovs OVSView
+	ovs        OVSView
+	unixctlOVS *unixctl.OVSSnapshot
 }
 
-func (f *fakeDataSource) OVS() OVSView                   { return f.ovs }
-func (f *fakeDataSource) OVNNB() OVNNBView               { return nil }
-func (f *fakeDataSource) OVNSB() OVNSBView               { return nil }
-func (f *fakeDataSource) UnixCtlOVS() UnixCtlSnapshot    { return nil }
-func (f *fakeDataSource) UnixCtlNorthd() UnixCtlSnapshot { return nil }
+func (f *fakeDataSource) OVS() OVSView                         { return f.ovs }
+func (f *fakeDataSource) OVNNB() OVNNBView                     { return nil }
+func (f *fakeDataSource) OVNSB() OVNSBView                     { return nil }
+func (f *fakeDataSource) UnixCtlOVS() *unixctl.OVSSnapshot     { return f.unixctlOVS }
+func (f *fakeDataSource) UnixCtlNorthd() UnixCtlNorthdSnapshot { return nil }
 
 func TestOVSBridges_Observes(t *testing.T) {
 	reader := sdkmetric.NewManualReader()

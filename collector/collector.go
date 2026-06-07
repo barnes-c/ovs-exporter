@@ -11,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/barnes-c/ovs-exporter/internal/ovsdb/ovsmodel"
+	"github.com/barnes-c/ovs-exporter/internal/unixctl"
 )
 
 // Collector is the interface every sub-collector implements.
@@ -41,8 +42,12 @@ type DataSource interface {
 	OVS() OVSView
 	OVNNB() OVNNBView
 	OVNSB() OVNSBView
-	UnixCtlOVS() UnixCtlSnapshot
-	UnixCtlNorthd() UnixCtlSnapshot
+	// UnixCtlOVS returns the most recently scraped ovs-vswitchd appctl
+	// snapshot. Returns nil before the first successful scrape and
+	// individual snapshot fields may also be nil if a particular parser
+	// has not yet succeeded.
+	UnixCtlOVS() *unixctl.OVSSnapshot
+	UnixCtlNorthd() UnixCtlNorthdSnapshot
 }
 
 // OVSView is the read API over the Open_vSwitch DB cache. Methods correspond
@@ -57,10 +62,12 @@ type OVSView interface {
 }
 
 // OVN view placeholders, populated by T17 when the OVN libovsdb clients land.
+// UnixCtlNorthdSnapshot is similarly a placeholder until M2 wires
+// ovn-northd appctl scraping.
 type (
-	OVNNBView       interface{}
-	OVNSBView       interface{}
-	UnixCtlSnapshot interface{}
+	OVNNBView             interface{}
+	OVNSBView             interface{}
+	UnixCtlNorthdSnapshot interface{}
 )
 
 // Default-state shorthand used by registerCollector callers.
