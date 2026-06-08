@@ -9,5 +9,6 @@ type OVSSnapshot struct {
 	Coverage *Coverage
 	Memory   *Memory
 	DPIF     *DPIF
+	DPCTL    *DPCTL
 	Upcall   *Upcall
 }

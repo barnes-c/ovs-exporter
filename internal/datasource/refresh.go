@@ -59,6 +59,13 @@ func NewOVSRefresh(client *unixctl.Client, log *slog.Logger) scrape.RefreshFunc[
 			}
 			return err
 		})
+		call("dpctl/show", func(raw json.RawMessage) error {
+			dp, err := unixctl.ParseDPCTL(raw)
+			if err == nil {
+				snap.DPCTL = dp
+			}
+			return err
+		})
 		call("upcall/show", func(raw json.RawMessage) error {
 			up, err := unixctl.ParseUpcall(raw)
 			if err == nil {

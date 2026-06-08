@@ -1,0 +1,14 @@
+system@ovs-system:
+  lookups: hit:21901868 missed:2331661 lost:0
+  flows: 122
+  masks: hit:52499122 total:8 hit/pkt:2.17
+  cache: hit:18277721 hit-rate:75.42%
+  caches:
+    masks-cache: size:256
+  port 0: ovs-system (internal)
+  port 1: br-eth0 (internal)
+  port 2: br-int (internal)
+  port 3: eth0
+  port 4: genev_sys_6081 (geneve: packet_type=ptap)
+  port 5: tap00000001-c1
+  port 6: tap00000002-50
