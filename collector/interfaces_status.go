@@ -15,8 +15,8 @@ func init() {
 }
 
 // ovsInterfaceStatusCollector exposes the contents of the OVS Interface
-// table's three free-form k/v maps — status, options, external_ids — as
-// info gauges (value=1) carrying the key and value in label attributes.
+// table's (status, options, external_ids) as info gauges (value=1)
+// carrying the key and value in label attributes.
 //
 // This is the most cardinality-heavy default-off collector by far. The
 // value goes in a label, so every distinct value creates a new series:
@@ -27,12 +27,6 @@ func init() {
 //     which on an OVN cluster is per-chassis.
 //   - Interface.external_ids holds orchestrator-applied UUIDs and tags;
 //     k8s and OpenStack both stamp ports with their own object IDs.
-//
-// On a CERN compute node with ~5000 interfaces the per-instance series
-// count can be 50000-500000 depending on which maps are populated.
-// Enabling this without monitoring backend headroom is how dashboards
-// fall over. CERN's forks shipped with these specific metrics commented
-// out in source; this flag makes the same toggle explicit.
 type ovsInterfaceStatusCollector struct {
 	log *slog.Logger
 	src DataSource

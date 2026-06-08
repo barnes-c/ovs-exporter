@@ -86,8 +86,6 @@ func TestOVSInterfaceInfo_Observes(t *testing.T) {
 }
 
 func TestOVSInterfaceInfo_NilFieldsOmitObservation(t *testing.T) {
-	// An interface with only a name + type set must not panic and must
-	// not emit the optional-pointer gauges.
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })

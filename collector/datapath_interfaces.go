@@ -15,15 +15,7 @@ func init() {
 
 // ovsDatapathInterfacesCollector exposes the per-port topology embedded
 // in `ovs-appctl dpif/show`: which OF port lives on which bridge on
-// which datapath, plus its kernel datapath port number, OF port number
-// (which can be the string "none" for patch ports), and type.
-//
-// Default OFF: emits one series per OF port. On a CERN compute node
-// with ~5000 OF ports this becomes 5000 active series in the
-// `ovs.datapath.interface.info` metric. The series count is stable per
-// host (doesn't multiply with values) but materially raises the active
-// series total — operators with strict per-host budgets should leave
-// this off.
+// which datapath, plus its kernel datapath port number, OF port number, and type.
 type ovsDatapathInterfacesCollector struct {
 	log *slog.Logger
 	src DataSource

@@ -14,17 +14,9 @@ import (
 	"github.com/barnes-c/ovs-exporter/internal/unixctl"
 )
 
-// Collector is the interface every sub-collector implements.
 type Collector interface {
-	// Name returns the collector's short name, e.g. "ovs-bridges". It is
-	// the same string used in the --collector.<name> flag.
 	Name() string
-	// Register creates the OTel instruments owned by this collector on the
-	// given Meter and wires their callbacks. It is called exactly once at
-	// startup, before /metrics is served.
 	Register(meter metric.Meter, src DataSource) error
-	// Close releases any per-collector resources. The shared DataSource is
-	// closed by the orchestrator, not by collectors.
 	Close() error
 }
 
@@ -52,7 +44,6 @@ type OVSView interface {
 	OpenvSwitch() *ovsmodel.OpenvSwitch
 }
 
-// Default-state shorthand used by registerCollector callers.
 const (
 	DefaultEnabled  = true
 	DefaultDisabled = false

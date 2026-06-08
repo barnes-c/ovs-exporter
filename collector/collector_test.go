@@ -108,9 +108,7 @@ func TestDisableDefaultCollectors_RespectsForced(t *testing.T) {
 }
 
 // TestRegisterCollector_EndToEnd exercises the registration path through
-// NewGroup so registerCollector + collectorFlagAction are covered. Uses a
-// unique flag name to avoid colliding with any future collector flag (and
-// with itself if the test process re-runs).
+// NewGroup so registerCollector + collectorFlagAction are covered.
 func TestRegisterCollector_EndToEnd(t *testing.T) {
 	resetRegistryForTest(t)
 
@@ -146,8 +144,7 @@ func TestRegisterCollector_EndToEnd(t *testing.T) {
 //
 // Note: kingpin flag registrations from registerCollector still leak into
 // the global CommandLine; tests that exercise registerCollector must use
-// unique flag names. This is a known limitation of mirroring garmin's
-// global-singleton registry pattern.
+// unique flag names.
 func resetRegistryForTest(t *testing.T) {
 	t.Helper()
 	factoriesMu.Lock()

@@ -13,10 +13,7 @@ func init() {
 }
 
 // ovsMemoryCollector exposes the per-resource counts reported by
-// `ovs-appctl memory/show` (handlers, ofconns, ports, rules,
-// revalidators, ...). The keys are extensible — ovs-vswitchd can add new
-// resource names in future versions and they will surface here without
-// code changes.
+// `ovs-appctl memory/show` (handlers, ofconns, ports, rules, revalidators, ...).
 type ovsMemoryCollector struct {
 	log *slog.Logger
 	src DataSource
