@@ -9,16 +9,10 @@ import (
 )
 
 const (
-	// dbSystem matches the OpenTelemetry semantic convention value for the
-	// OVSDB protocol. Set on every span this package emits.
 	attrDBSystemValue = "ovsdb"
-	// dbName is the OVSDB database name. Open_vSwitch is the only DB this
-	// client talks to; OVN NB/SB clients (T16) will set their own values.
-	attrDBNameValue = "Open_vSwitch"
+	attrDBNameValue   = "Open_vSwitch"
 )
 
-// startSpan opens an ovsdb.* span if a Tracer is configured. Returns the
-// derived context and the span (which may be a no-op).
 func (c *Client) startSpan(ctx context.Context, name string, attrs ...attribute.KeyValue) (context.Context, trace.Span) {
 	if c.tracer == nil {
 		return ctx, trace.SpanFromContext(ctx)
@@ -31,7 +25,6 @@ func (c *Client) startSpan(ctx context.Context, name string, attrs ...attribute.
 	return c.tracer.Start(ctx, name, trace.WithAttributes(append(baseAttrs, attrs...)...))
 }
 
-// endSpan records err on span (if non-nil) and ends it.
 func endSpan(span trace.Span, err error) {
 	if span == nil {
 		return

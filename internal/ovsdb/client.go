@@ -1,16 +1,3 @@
-// Package ovsdb is the libovsdb client wrapper used by collectors to observe
-// Open_vSwitch DB state. It hides three things from callers:
-//
-//   - Connection management: the underlying libovsdb client reconnects
-//     automatically; the wrapper exposes only Connect / Close / Connected.
-//   - Monitor lifecycle: MonitorAll is established once after Connect so the
-//     in-process cache stays current via push updates from the server.
-//   - Tracing: OTel spans around the Transact and MonitorAll RPCs.
-//
-// Collectors observe state through View(), which returns a read-locked
-// snapshot accessor backed by the libovsdb cache. The accessor implements
-// collector.OVSView so observe callbacks can iterate rows without touching
-// the wire.
 package ovsdb
 
 import (
@@ -30,20 +17,12 @@ import (
 
 // Config configures the Open_vSwitch DB client.
 type Config struct {
-	// Endpoint is the libovsdb connection string, e.g.
-	// "unix:/var/run/openvswitch/db.sock" or "tcp:host:6640".
-	Endpoint string
-	// ReconnectTimeout is the per-attempt connect timeout for the reconnect
-	// loop. Defaults to 2s.
+	Endpoint         string
 	ReconnectTimeout time.Duration
-	// Logger receives wrapper-level log lines.
-	Logger *slog.Logger
-	// Tracer is used by the span helpers. Optional; when nil, no spans are
-	// emitted.
-	Tracer trace.Tracer
+	Logger           *slog.Logger
+	Tracer           trace.Tracer
 }
 
-// Client is the wrapped libovsdb client.
 type Client struct {
 	cfg    Config
 	log    *slog.Logger
@@ -106,7 +85,6 @@ func Connect(ctx context.Context, cfg Config) (*Client, error) {
 	return c, nil
 }
 
-// Close disconnects from the server and releases resources.
 func (c *Client) Close() error {
 	if c.inner == nil {
 		return nil
@@ -122,9 +100,7 @@ func (c *Client) Connected() bool {
 }
 
 // Healthy returns nil when the client is initialised and connected,
-// otherwise a descriptive error. Plugs into the probes.Checker interface
-// via a CheckerFunc wrapper so the probes package stays free of an
-// import on internal/ovsdb.
+// otherwise a descriptive error.
 func (c *Client) Healthy() error {
 	if c == nil || c.inner == nil {
 		return errors.New("ovsdb: client not initialised")
@@ -135,8 +111,6 @@ func (c *Client) Healthy() error {
 	return nil
 }
 
-// View returns a read-locked accessor over the in-process cache. Returns nil
-// if the client has been closed.
 func (c *Client) View() *OVSView {
 	if c.inner == nil {
 		return nil

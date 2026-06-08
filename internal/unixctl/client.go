@@ -1,14 +1,3 @@
-// Package unixctl is a minimal JSON-RPC 1.0 client for the unix control
-// sockets exposed by OVS / OVN daemons (ovs-vswitchd, ovsdb-server,
-// ovn-northd, ovn-controller). The wire format is concatenated JSON
-// objects on the connection; each Call exchanges exactly one
-// request/response pair before returning.
-//
-// The client is single-in-flight: concurrent Call invocations serialize on
-// the same socket so request/response pairs cannot interleave. On any
-// transport error the connection is dropped and the next Call re-dials —
-// re-running DiscoverSocket so PID changes after a daemon restart are
-// handled transparently.
 package unixctl
 
 import (
@@ -21,9 +10,6 @@ import (
 	"time"
 )
 
-// Config configures a unixctl Client. Either SocketPath or both RunDir and
-// Daemon must be set. When SocketPath is empty the client uses
-// DiscoverSocket(RunDir, Daemon) on every (re)connect.
 type Config struct {
 	SocketPath  string
 	RunDir      string
@@ -33,7 +19,6 @@ type Config struct {
 	Logger      *slog.Logger
 }
 
-// Client is a unixctl JSON-RPC client.
 type Client struct {
 	cfg    Config
 	log    *slog.Logger
@@ -44,8 +29,6 @@ type Client struct {
 	nextID int64
 }
 
-// New validates cfg and returns an unconnected Client; the first Call dials
-// the socket lazily.
 func New(cfg Config) (*Client, error) {
 	if cfg.SocketPath == "" && (cfg.RunDir == "" || cfg.Daemon == "") {
 		return nil, fmt.Errorf("unixctl: SocketPath or (RunDir + Daemon) is required")

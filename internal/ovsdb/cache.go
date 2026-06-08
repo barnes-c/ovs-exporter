@@ -10,13 +10,10 @@ import (
 // Open_vSwitch DB. Iterator methods invoke fn for each row of the named
 // table; iteration order is unspecified. The cache handles read locking
 // internally, so callbacks may iterate concurrently with monitor updates.
-//
-// Implements the collector.OVSView interface.
 type OVSView struct {
 	cache *cache.TableCache
 }
 
-// Bridges iterates every Bridge row currently in the cache.
 func (v *OVSView) Bridges(fn func(*ovsmodel.Bridge)) {
 	v.eachRow("Bridge", func(m any) {
 		if b, ok := m.(*ovsmodel.Bridge); ok {
@@ -25,7 +22,6 @@ func (v *OVSView) Bridges(fn func(*ovsmodel.Bridge)) {
 	})
 }
 
-// Ports iterates every Port row currently in the cache.
 func (v *OVSView) Ports(fn func(*ovsmodel.Port)) {
 	v.eachRow("Port", func(m any) {
 		if p, ok := m.(*ovsmodel.Port); ok {
@@ -34,7 +30,6 @@ func (v *OVSView) Ports(fn func(*ovsmodel.Port)) {
 	})
 }
 
-// Interfaces iterates every Interface row currently in the cache.
 func (v *OVSView) Interfaces(fn func(*ovsmodel.Interface)) {
 	v.eachRow("Interface", func(m any) {
 		if i, ok := m.(*ovsmodel.Interface); ok {
