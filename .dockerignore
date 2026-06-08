@@ -1,8 +1,16 @@
 .git
 .github
+.gitignore
 *_test.go
 *.test
+CHANGELOG.md
+CONTRIBUTING.md
 dist/
+Dockerfile*
 examples/
-schemas/
+MAINTAINERS.md
 Makefile
+README.md
+schemas/
+test/
+VERSION
