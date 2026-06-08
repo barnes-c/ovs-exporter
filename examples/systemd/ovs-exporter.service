@@ -1,0 +1,49 @@
+[Unit]
+Description=OpenTelemetry-native Prometheus exporter for Open vSwitch
+Documentation=https://github.com/barnes-c/ovs-exporter
+# Both names listed so the unit works on RHEL-family (openvswitch.service)
+# and Debian-family (openvswitch-switch.service) without conditional config.
+# `After=` of a missing unit is a no-op, so listing both is safe.
+After=network-online.target openvswitch.service openvswitch-switch.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=ovs-exporter
+Group=ovs-exporter
+# Read the OVS unixctl + ovsdb sockets owned by the openvswitch group.
+SupplementaryGroups=openvswitch
+
+# Both sysconfig paths are sourced with `-` so a missing file is not fatal.
+# RPM packages ship to /etc/sysconfig/ovs-exporter, DEB to /etc/default/ovs-exporter.
+EnvironmentFile=-/etc/sysconfig/ovs-exporter
+EnvironmentFile=-/etc/default/ovs-exporter
+
+ExecStart=/usr/bin/ovs-exporter $OPTIONS
+
+Restart=on-failure
+RestartSec=5s
+
+# --- Hardening (systemd 235+) --------------------------------------------
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+PrivateTmp=true
+PrivateDevices=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @debug @mount
+
+[Install]
+WantedBy=multi-user.target

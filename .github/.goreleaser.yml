@@ -54,11 +54,11 @@ nfpms:
     contents:
       - src: examples/systemd/ovs-exporter.service
         dst: /usr/lib/systemd/system/ovs-exporter.service
-      - src: examples/sysconfig/ovs-exporter
+      - src: examples/systemd/sysconfig.ovs-exporter
         dst: /etc/sysconfig/ovs-exporter
         type: config|noreplace
         packager: rpm
-      - src: examples/sysconfig/ovs-exporter
+      - src: examples/systemd/sysconfig.ovs-exporter
         dst: /etc/default/ovs-exporter
         type: config|noreplace
         packager: deb
