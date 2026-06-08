@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	registerCollector("ovs-interface-info", DefaultDisabled, newOVSInterfaceInfoCollector)
+	registerCollector("interface-info", DefaultDisabled, newOVSInterfaceInfoCollector)
 }
 
 // ovsInterfaceInfoCollector exposes per-interface metadata: admin/link
@@ -41,7 +41,7 @@ func newOVSInterfaceInfoCollector(log *slog.Logger) (Collector, error) {
 	return &ovsInterfaceInfoCollector{log: log}, nil
 }
 
-func (c *ovsInterfaceInfoCollector) Name() string { return "ovs-interface-info" }
+func (c *ovsInterfaceInfoCollector) Name() string { return "interface-info" }
 
 func (c *ovsInterfaceInfoCollector) Register(meter metric.Meter, src DataSource) error {
 	c.src = src

@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	registerCollector("ovs-bridges", DefaultEnabled, newOVSBridgesCollector)
+	registerCollector("bridges", DefaultEnabled, newOVSBridgesCollector)
 }
 
 type ovsBridgesCollector struct {
@@ -28,7 +28,7 @@ func newOVSBridgesCollector(log *slog.Logger) (Collector, error) {
 	return &ovsBridgesCollector{log: log}, nil
 }
 
-func (c *ovsBridgesCollector) Name() string { return "ovs-bridges" }
+func (c *ovsBridgesCollector) Name() string { return "bridges" }
 
 func (c *ovsBridgesCollector) Register(meter metric.Meter, src DataSource) error {
 	c.src = src

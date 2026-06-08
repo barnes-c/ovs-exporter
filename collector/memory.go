@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	registerCollector("ovs-memory", DefaultEnabled, newOVSMemoryCollector)
+	registerCollector("memory", DefaultEnabled, newOVSMemoryCollector)
 }
 
 // ovsMemoryCollector exposes the per-resource counts reported by
@@ -27,7 +27,7 @@ func newOVSMemoryCollector(log *slog.Logger) (Collector, error) {
 	return &ovsMemoryCollector{log: log}, nil
 }
 
-func (c *ovsMemoryCollector) Name() string { return "ovs-memory" }
+func (c *ovsMemoryCollector) Name() string { return "memory" }
 
 func (c *ovsMemoryCollector) Register(meter metric.Meter, src DataSource) error {
 	c.src = src

@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	registerCollector("ovs-interface-status", DefaultDisabled, newOVSInterfaceStatusCollector)
+	registerCollector("interface-status", DefaultDisabled, newOVSInterfaceStatusCollector)
 }
 
 // ovsInterfaceStatusCollector exposes the contents of the OVS Interface
@@ -42,7 +42,7 @@ func newOVSInterfaceStatusCollector(log *slog.Logger) (Collector, error) {
 	return &ovsInterfaceStatusCollector{log: log}, nil
 }
 
-func (c *ovsInterfaceStatusCollector) Name() string { return "ovs-interface-status" }
+func (c *ovsInterfaceStatusCollector) Name() string { return "interface-status" }
 
 func (c *ovsInterfaceStatusCollector) Register(meter metric.Meter, src DataSource) error {
 	c.src = src

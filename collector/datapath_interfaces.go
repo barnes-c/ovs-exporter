@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	registerCollector("ovs-datapath-interfaces", DefaultDisabled, newOVSDatapathInterfacesCollector)
+	registerCollector("datapath-interfaces", DefaultDisabled, newOVSDatapathInterfacesCollector)
 }
 
 // ovsDatapathInterfacesCollector exposes the per-port topology embedded
@@ -29,7 +29,7 @@ func newOVSDatapathInterfacesCollector(log *slog.Logger) (Collector, error) {
 	return &ovsDatapathInterfacesCollector{log: log}, nil
 }
 
-func (c *ovsDatapathInterfacesCollector) Name() string { return "ovs-datapath-interfaces" }
+func (c *ovsDatapathInterfacesCollector) Name() string { return "datapath-interfaces" }
 
 func (c *ovsDatapathInterfacesCollector) Register(meter metric.Meter, src DataSource) error {
 	c.src = src

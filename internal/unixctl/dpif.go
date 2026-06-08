@@ -21,7 +21,7 @@ import (
 // Indented bridge / port lines hold topology data (bridge → datapath
 // mapping, port type, OF port numbers, tunnel remote_ip, patch peer).
 // They are intentionally not parsed here — that's the opt-in
-// --collector.ovs-datapath-interfaces collector in T13. The flow count
+// --collector.datapath-interfaces collector in T13. The flow count
 // and mask-cache stats that the original plan called for are not in
 // `dpif/show` output; they live in `dpctl/show`, which we'll add as a
 // separate scrape target if/when those metrics become a priority.
