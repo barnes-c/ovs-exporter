@@ -3,7 +3,7 @@ FROM gcr.io/distroless/static-debian13:nonroot@sha256:963fa6c544fe5ce420f1f54fb8
 LABEL io.prometheus.image.variant="distroless"
 LABEL maintainer="Christopher Barnes <github@barnes.biz>"
 LABEL org.opencontainers.image.authors="Christopher Barnes"
-LABEL org.opencontainers.image.description="OTel-native Prometheus exporter for Open vSwitch (OVS) and OVN"
+LABEL org.opencontainers.image.description="OTel-native Prometheus exporter for Open vSwitch (OVS)"
 LABEL org.opencontainers.image.documentation="https://github.com/barnes-c/ovs-exporter"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/barnes-c/ovs-exporter"
