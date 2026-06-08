@@ -1,15 +1,13 @@
 ---
 name: golangci-lint
 on:
-  push:
-    branches: [main, master, "release-*"]
+  pull_request:
     paths:
       - "go.sum"
       - "go.mod"
       - "**.go"
       - ".github/workflows/golangci-lint.yml"
       - ".github/.golangci.yml"
-  pull_request:
 
 permissions:
   contents: read

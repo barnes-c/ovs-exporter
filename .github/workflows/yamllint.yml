@@ -6,12 +6,6 @@ on:
       - "**.yml"
       - "**.yaml"
       - ".github/.yamllint"
-  push:
-    branches: [main, master]
-    paths:
-      - "**.yml"
-      - "**.yaml"
-      - ".github/.yamllint"
 
 permissions:
   contents: read
