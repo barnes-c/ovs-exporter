@@ -57,29 +57,17 @@ func TestIntegration_ProbesReachable(t *testing.T) {
 }
 
 func TestIntegration_DefaultCollectorsRegistered(t *testing.T) {
-	metrics := scrapeAndParse(t)
-	// Only collectors that emit unconditionally on an empty OVS belong
-	// here. Specifically NOT included:
-	//   - ovs_coverage_events_total: `coverage/show` lists only events
-	//     that have been hit ≥1 time. A freshly-started ovs-vswitchd
-	//     with zero activity emits the header + "0 events never hit"
-	//     and nothing in between, so the metric is registered but has
-	//     no data points and the Prom exporter omits the line entirely.
-	//     The TestIntegration_AddBridge* tests below trigger activity
-	//     and indirectly verify the coverage scrape path.
-	//   - ovs_interface_*, ovs_datapath_*, ovs_upcall_*: per-row
-	//     iteration, no rows on empty OVS. Covered by the AddBridge tests.
+	// Mix of always-emit (bridges/ports — libovsdb monitor pushes
+	// immediately) and scrape-dependent (memory/coverage — wait for the
+	// first unixctl tick + a couple of ovs-vswitchd housekeeping events
+	// like poll_create_node / seq_change to register).
 	wantPresent := []string{
 		"ovs_bridges_count",
 		"ovs_ports_count",
 		"ovs_coverage_events_total",
 		"ovs_memory_usage",
 	}
-	for _, name := range wantPresent {
-		if _, ok := metrics[name]; !ok {
-			t.Errorf("metric %q missing from /metrics; got: %v", name, sortedNames(metrics))
-		}
-	}
+	eventuallyHasMetrics(t, wantPresent, cacheTTL+5*time.Second)
 }
 
 func TestIntegration_AddBridgeIncrementsCount(t *testing.T) {
@@ -111,21 +99,51 @@ func TestIntegration_AddBridgeLightsUpDatapathAndUpcall(t *testing.T) {
 		t.Fatalf("ovs-vsctl add-br: %v", err)
 	}
 
-	// Datapath + upcall metrics come from unixctl scrapes. Wait one
-	// full TTL plus a buffer so a refresh has definitely run since the
-	// add-br completed.
-	time.Sleep(cacheTTL + 2*time.Second)
-
-	metrics := scrapeAndParse(t)
-	wantPresent := []string{
+	// Datapath + upcall metrics come from unixctl scrapes. Poll until
+	// the next refresh has picked up the new datapath rather than
+	// hard-sleeping a fixed TTL — keeps the test fast on a healthy box
+	// and forgiving on a slow one.
+	eventuallyHasMetrics(t, []string{
 		"ovs_datapath_lookups_total",
 		"ovs_upcall_flows_current",
 		"ovs_upcall_flows_limit",
-	}
-	for _, name := range wantPresent {
-		if _, ok := metrics[name]; !ok {
-			t.Errorf("metric %q missing after add-br; got: %v", name, sortedNames(metrics))
+	}, cacheTTL+5*time.Second)
+}
+
+// eventuallyHasMetrics polls /metrics every 500ms until every name in
+// wants is present, up to timeout. Reports the last seen metric set on
+// failure so it's clear what *did* show up.
+//
+// Why polling instead of a fixed sleep: most metrics appear quickly,
+// some take a TTL (unixctl-backed) or a couple of ovs-vswitchd
+// housekeeping events (ovs_coverage_events_total). Polling returns as
+// soon as the test's preconditions are met, which keeps the suite fast
+// on a healthy box without making it brittle on a slow one.
+func eventuallyHasMetrics(t *testing.T, wants []string, timeout time.Duration) {
+	t.Helper()
+	const interval = 500 * time.Millisecond
+	deadline := time.Now().Add(timeout)
+	var (
+		missing     []string
+		lastMetrics map[string]*dto.MetricFamily
+	)
+	for {
+		lastMetrics = scrapeAndParse(t)
+		missing = missing[:0]
+		for _, name := range wants {
+			if _, ok := lastMetrics[name]; !ok {
+				missing = append(missing, name)
+			}
 		}
+		if len(missing) == 0 {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Errorf("after %v, still missing %v from /metrics; got: %v",
+				timeout, missing, sortedNames(lastMetrics))
+			return
+		}
+		time.Sleep(interval)
 	}
 }
 
