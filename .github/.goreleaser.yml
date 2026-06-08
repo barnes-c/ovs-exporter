@@ -159,4 +159,5 @@ release:
   github:
     owner: barnes-c
     name: ovs-exporter
+  draft: true
   prerelease: auto
