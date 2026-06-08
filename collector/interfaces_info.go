@@ -18,8 +18,6 @@ func init() {
 // state, MTU, link speed, OpenFlow port number, ifindex, and ingress
 // policing limits. Plus an `ovs.interface.info` gauge=1 carrying the
 // string-valued attributes (type, MAC, duplex).
-//
-// Default OFF because every interface multiplies the active series count by ~10.
 type ovsInterfaceInfoCollector struct {
 	log *slog.Logger
 	src DataSource

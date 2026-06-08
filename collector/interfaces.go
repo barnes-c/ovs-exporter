@@ -19,7 +19,7 @@ func init() {
 // by walking Bridge.Ports → Port.Interfaces against the libovsdb cache.
 //
 // Per-interface metadata (admin/link state, MTU, MAC, etc.) lives in
-// ovs_interfaces_info.go behind an opt-in flag because of cardinality.
+// interfaces_info.go behind an opt-in flag because of cardinality.
 type ovsInterfacesCollector struct {
 	log *slog.Logger
 	src DataSource

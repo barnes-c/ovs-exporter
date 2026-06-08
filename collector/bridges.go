@@ -14,10 +14,6 @@ func init() {
 	registerCollector("ovs-bridges", DefaultEnabled, newOVSBridgesCollector)
 }
 
-// ovsBridgesCollector exposes the count of OVS bridges on the host and the
-// number of ports attached to each. The data flows entirely from the
-// libovsdb monitor cache via the supplied DataSource — no transport touches
-// the wire during a Prometheus scrape.
 type ovsBridgesCollector struct {
 	log *slog.Logger
 	src DataSource

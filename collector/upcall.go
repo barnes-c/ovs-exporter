@@ -16,13 +16,6 @@ func init() {
 // ovsUpcallCollector exposes the per-datapath upcall / revalidator stats
 // reported by `ovs-appctl upcall/show`: current/max/limit flow counts,
 // per-tick dump duration, and per-handler key counts.
-//
-// Dump duration is exposed as int64 milliseconds with unit "ms" rather
-// than the OTel-canonical seconds float — keeps the integer-only metric
-// path in this exporter consistent and matches what operators read from
-// ovs-appctl directly. The "avg" column is dropped (Prometheus rate over
-// the current series gives a better moving average than the OVS-internal
-// EWMA).
 type ovsUpcallCollector struct {
 	log *slog.Logger
 	src DataSource

@@ -12,8 +12,6 @@ func init() {
 	registerCollector("ovs-coverage", DefaultEnabled, newOVSCoverageCollector)
 }
 
-// ovsCoverageCollector exposes cumulative event counts from
-// `ovs-appctl coverage/show`
 type ovsCoverageCollector struct {
 	log *slog.Logger
 	src DataSource
