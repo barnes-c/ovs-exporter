@@ -21,7 +21,7 @@ jobs:
 
       - name: Compute drift report
         # Compares our vendored floor schema (schemas/vswitch.ovsschema,
-        # OVS 3.1) against upstream openvswitch/ovs@main. Lists tables and
+        # OVS 3.3) against upstream openvswitch/ovs@main. Lists tables and
         # columns the upstream has that we don't model.
         id: diff
         run: |
@@ -85,6 +85,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+          gh label create schema-watch --color "#0075ca" --description "Upstream OVS schema drift" 2>/dev/null || true
           title="OVS upstream schema drift"
           existing=$(gh issue list --label schema-watch --state open \
             --json number,title \
