@@ -1,0 +1,33 @@
+# Prometheus Operator ServiceMonitor — discovers the DaemonSet's pods
+# via the headless Service in service.yaml and scrapes /metrics.
+#
+# Requires kube-prometheus-stack / Prometheus Operator installed.
+# Adjust .spec.selector.matchLabels.release to match your Prometheus
+# Operator's CRD selector (often `release: kube-prometheus-stack`).
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ovs-exporter
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: ovs-exporter
+    app.kubernetes.io/instance: ovs-exporter
+    # EDIT to match your Prometheus instance's ServiceMonitor selector.
+    # Check with:
+    #   kubectl -n monitoring get prometheus -o yaml \
+    #     | grep -A5 serviceMonitorSelector
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ovs-exporter
+  namespaceSelector:
+    matchNames:
+      - monitoring
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      honorLabels: true

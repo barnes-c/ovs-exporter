@@ -1,0 +1,112 @@
+# DaemonSet for running ovs-exporter on every hypervisor node.
+#
+# Adjust the following before applying:
+#   - .spec.template.spec.nodeSelector — match the label your fleet uses
+#     to mark hypervisor / compute nodes. Common values:
+#       node-role.kubernetes.io/compute: ""
+#       node-role.kubernetes.io/worker: ""
+#       openstack.org/compute: "true"
+#   - .spec.template.spec.securityContext.supplementalGroups — set this to
+#     the host's openvswitch group GID so the container can read the
+#     unix sockets in /var/run/openvswitch. The GID varies by distro:
+#       RHEL family: typically 388
+#       Debian family: typically 116
+#     Check with: `getent group openvswitch` on a hypervisor.
+#   - .spec.template.spec.containers[0].image — pin to a specific tag.
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: ovs-exporter
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: ovs-exporter
+    app.kubernetes.io/instance: ovs-exporter
+    app.kubernetes.io/component: exporter
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ovs-exporter
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ovs-exporter
+        app.kubernetes.io/instance: ovs-exporter
+        app.kubernetes.io/component: exporter
+    spec:
+      # Only run on nodes that actually have ovs-vswitchd. Adjust to match
+      # the label your fleet uses for hypervisor / compute nodes.
+      nodeSelector:
+        node-role.kubernetes.io/compute: ""
+      # Tolerate hypervisor-specific taints (control-plane, dedicated, etc.).
+      # Add or trim entries to fit your fleet's taint conventions.
+      tolerations:
+        - operator: Exists
+      # Use the host's network namespace so /readyz and /metrics are reachable
+      # from the node IP without per-pod NodePort plumbing. The container
+      # binds :10054 in the host network namespace — make sure that port
+      # is free.
+      hostNetwork: true
+      hostPID: false
+      dnsPolicy: ClusterFirstWithHostNet
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        # Host openvswitch GID. EDIT to match your fleet. See file header.
+        supplementalGroups: [388]
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ovs-exporter
+          image: ghcr.io/barnes-c/ovs-exporter
+          imagePullPolicy: IfNotPresent
+          args:
+            - --web.listen-address=:10054
+            - --cache.ttl=15s
+            - --ovs.db-socket=unix:/var/run/openvswitch/db.sock
+            - --ovs.run-dir=/var/run/openvswitch
+          ports:
+            - name: metrics
+              containerPort: 10054
+              hostPort: 10054
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: openvswitch
+              mountPath: /var/run/openvswitch
+              readOnly: true
+      volumes:
+        - name: openvswitch
+          hostPath:
+            path: /var/run/openvswitch
+            type: Directory

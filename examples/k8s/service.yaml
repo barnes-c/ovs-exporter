@@ -1,0 +1,21 @@
+# Headless Service backing the DaemonSet pods.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ovs-exporter
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: ovs-exporter
+    app.kubernetes.io/instance: ovs-exporter
+    app.kubernetes.io/component: exporter
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: ovs-exporter
+  ports:
+    - name: metrics
+      port: 10054
+      targetPort: metrics
+      protocol: TCP
