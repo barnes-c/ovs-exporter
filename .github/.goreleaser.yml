@@ -47,7 +47,7 @@ nfpms:
       - rpm
       - deb
     maintainer: Christopher Barnes <github@barnes.biz>
-    description: OTel-native Prometheus exporter for Open vSwitch (OVS) and OVN
+    description: OTel-native Prometheus exporter for Open vSwitch (OVS)
     license: Apache-2.0
     homepage: https://github.com/barnes-c/ovs-exporter
     bindir: /usr/bin
