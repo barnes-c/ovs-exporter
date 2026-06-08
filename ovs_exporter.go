@@ -101,7 +101,7 @@ func buildHandler(res *otel.Result, metricsPath string, readyChecks map[string]p
 	if metricsPath != "/" {
 		landing, err := web.NewLandingPage(web.LandingConfig{
 			Name:        "OVS Exporter",
-			Description: "OTel-native Prometheus exporter for Open vSwitch and OVN",
+			Description: "OTel-native Prometheus exporter for Open vSwitch",
 			Version:     version.Info(),
 			Links: []web.LandingLinks{
 				{Address: metricsPath, Text: "Metrics"},
@@ -198,7 +198,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	src := datasource.New(ovsClient, ovsScraper)
+	src := datasource.NewDataSource(ovsClient, ovsScraper)
 
 	group, err := collector.NewGroup(logger)
 	if err != nil {
