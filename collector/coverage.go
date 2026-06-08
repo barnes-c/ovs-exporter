@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	registerCollector("ovs-coverage", DefaultEnabled, newOVSCoverageCollector)
+	registerCollector("coverage", DefaultEnabled, newOVSCoverageCollector)
 }
 
 type ovsCoverageCollector struct {
@@ -24,7 +24,7 @@ func newOVSCoverageCollector(log *slog.Logger) (Collector, error) {
 	return &ovsCoverageCollector{log: log}, nil
 }
 
-func (c *ovsCoverageCollector) Name() string { return "ovs-coverage" }
+func (c *ovsCoverageCollector) Name() string { return "coverage" }
 
 func (c *ovsCoverageCollector) Register(meter metric.Meter, src DataSource) error {
 	c.src = src

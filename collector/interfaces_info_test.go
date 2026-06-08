@@ -137,7 +137,7 @@ func TestOVSInterfaceInfo_DefaultDisabled(t *testing.T) {
 	// with DefaultDisabled. We can't observe the kingpin flag value here
 	// (kingpin.Parse hasn't run), but we can confirm the factory exists
 	// in the registry.
-	if _, ok := factories["ovs-interface-info"]; !ok {
-		t.Error("ovs-interface-info not registered in factories")
+	if _, ok := factories["interface-info"]; !ok {
+		t.Error("interface-info not registered in factories")
 	}
 }

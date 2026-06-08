@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	registerCollector("ovs-upcall", DefaultEnabled, newOVSUpcallCollector)
+	registerCollector("upcall", DefaultEnabled, newOVSUpcallCollector)
 }
 
 // ovsUpcallCollector exposes the per-datapath upcall / revalidator stats
@@ -33,7 +33,7 @@ func newOVSUpcallCollector(log *slog.Logger) (Collector, error) {
 	return &ovsUpcallCollector{log: log}, nil
 }
 
-func (c *ovsUpcallCollector) Name() string { return "ovs-upcall" }
+func (c *ovsUpcallCollector) Name() string { return "upcall" }
 
 func (c *ovsUpcallCollector) Register(meter metric.Meter, src DataSource) error {
 	c.src = src

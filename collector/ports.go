@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	registerCollector("ovs-ports", DefaultEnabled, newOVSPortsCollector)
+	registerCollector("ports", DefaultEnabled, newOVSPortsCollector)
 }
 
 // ovsPortsCollector exposes the total number of OVS ports on the host.
@@ -30,7 +30,7 @@ func newOVSPortsCollector(log *slog.Logger) (Collector, error) {
 	return &ovsPortsCollector{log: log}, nil
 }
 
-func (c *ovsPortsCollector) Name() string { return "ovs-ports" }
+func (c *ovsPortsCollector) Name() string { return "ports" }
 
 func (c *ovsPortsCollector) Register(meter metric.Meter, src DataSource) error {
 	c.src = src

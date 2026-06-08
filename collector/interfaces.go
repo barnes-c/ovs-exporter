@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	registerCollector("ovs-interfaces", DefaultEnabled, newOVSInterfacesCollector)
+	registerCollector("interfaces", DefaultEnabled, newOVSInterfacesCollector)
 }
 
 // ovsInterfacesCollector exposes per-interface statistics counters from the
@@ -39,7 +39,7 @@ func newOVSInterfacesCollector(log *slog.Logger) (Collector, error) {
 	return &ovsInterfacesCollector{log: log}, nil
 }
 
-func (c *ovsInterfacesCollector) Name() string { return "ovs-interfaces" }
+func (c *ovsInterfacesCollector) Name() string { return "interfaces" }
 
 func (c *ovsInterfacesCollector) Register(meter metric.Meter, src DataSource) error {
 	c.src = src

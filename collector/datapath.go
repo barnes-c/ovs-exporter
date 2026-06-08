@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	registerCollector("ovs-datapath", DefaultEnabled, newOVSDatapathCollector)
+	registerCollector("datapath", DefaultEnabled, newOVSDatapathCollector)
 }
 
 // ovsDatapathCollector exposes per-datapath lookup, flow, and mask
@@ -20,7 +20,7 @@ func init() {
 // flows/masks gauges simply drop out and lookups continue.
 //
 // Per-port topology lines from the same dpif/show response are routed
-// to the opt-in `--collector.ovs-datapath-interfaces` collector because
+// to the opt-in `--collector.datapath-interfaces` collector because
 // their cardinality scales with port count.
 type ovsDatapathCollector struct {
 	log *slog.Logger
@@ -38,7 +38,7 @@ func newOVSDatapathCollector(log *slog.Logger) (Collector, error) {
 	return &ovsDatapathCollector{log: log}, nil
 }
 
-func (c *ovsDatapathCollector) Name() string { return "ovs-datapath" }
+func (c *ovsDatapathCollector) Name() string { return "datapath" }
 
 func (c *ovsDatapathCollector) Register(meter metric.Meter, src DataSource) error {
 	c.src = src
