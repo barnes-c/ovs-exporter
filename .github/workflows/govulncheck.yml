@@ -6,12 +6,6 @@ on:
       - go.mod
       - go.sum
       - "**/*.go"
-  push:
-    branches: [main, master]
-    paths:
-      - go.mod
-      - go.sum
-      - "**/*.go"
   schedule:
     - cron: "33 2 * * *"
 
