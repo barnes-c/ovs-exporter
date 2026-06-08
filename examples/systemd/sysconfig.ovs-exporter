@@ -18,9 +18,9 @@ OPTIONS=""
 
 # Enable an opt-in cardinality collector. READ the README cardinality math
 # (`Collectors` > `Opt-in`) before turning any of these on at scale.
-# OPTIONS="--collector.ovs-interface-info"
-# OPTIONS="--collector.ovs-datapath-interfaces"
-# OPTIONS="--collector.ovs-interface-status"  # highest cardinality of the three
+# OPTIONS="--collector.interface-info"
+# OPTIONS="--collector.datapath-interfaces"
+# OPTIONS="--collector.interface-status"  # highest cardinality of the three
 
 # Override the OVS socket paths (kolla-ansible, OpenStack puts them elsewhere):
 # OPTIONS="--ovs.db-socket=unix:/run/openvswitch/db.sock \
