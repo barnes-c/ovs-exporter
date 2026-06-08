@@ -43,11 +43,8 @@ type fakeDataSource struct {
 	unixctlOVS *unixctl.OVSSnapshot
 }
 
-func (f *fakeDataSource) OVS() OVSView                         { return f.ovs }
-func (f *fakeDataSource) OVNNB() OVNNBView                     { return nil }
-func (f *fakeDataSource) OVNSB() OVNSBView                     { return nil }
-func (f *fakeDataSource) UnixCtlOVS() *unixctl.OVSSnapshot     { return f.unixctlOVS }
-func (f *fakeDataSource) UnixCtlNorthd() UnixCtlNorthdSnapshot { return nil }
+func (f *fakeDataSource) OVS() OVSView                     { return f.ovs }
+func (f *fakeDataSource) UnixCtlOVS() *unixctl.OVSSnapshot { return f.unixctlOVS }
 
 func TestOVSBridges_Observes(t *testing.T) {
 	reader := sdkmetric.NewManualReader()

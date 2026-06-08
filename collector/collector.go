@@ -28,26 +28,17 @@ type Collector interface {
 	Close() error
 }
 
-// DataSource is the read API collectors use to observe state. Each accessor
-// returns an interface that the corresponding internal package implements
-// Accessors return nil when the underlying transport is not configured
-// e.g. OVNNB() is nil on hosts where --ovn.nb-addresses is empty.
-//
-// The view interfaces below are empty placeholders. Concrete methods are
-// added by the collectors that need them (T6 adds Bridges to OVSView,
-// T7 adds Interfaces, etc.). The libovsdb-backed implementations live in
-// internal/ovsdb (T5), the unixctl-backed implementations in internal/scrape
-// (T9).
+// DataSource is the read API collectors use to observe state. Each
+// accessor returns nil when the underlying transport is not configured
+// (e.g. UnixCtlOVS returns nil before the first successful scrape, OVS
+// returns nil when the libovsdb client failed to connect at startup).
 type DataSource interface {
 	OVS() OVSView
-	OVNNB() OVNNBView
-	OVNSB() OVNSBView
 	// UnixCtlOVS returns the most recently scraped ovs-vswitchd appctl
-	// snapshot. Returns nil before the first successful scrape and
+	// snapshot. Returns nil before the first successful scrape;
 	// individual snapshot fields may also be nil if a particular parser
 	// has not yet succeeded.
 	UnixCtlOVS() *unixctl.OVSSnapshot
-	UnixCtlNorthd() UnixCtlNorthdSnapshot
 }
 
 // OVSView is the read API over the Open_vSwitch DB cache. Methods correspond
@@ -60,15 +51,6 @@ type OVSView interface {
 	Interfaces(fn func(*ovsmodel.Interface))
 	OpenvSwitch() *ovsmodel.OpenvSwitch
 }
-
-// OVN view placeholders, populated by T17 when the OVN libovsdb clients land.
-// UnixCtlNorthdSnapshot is similarly a placeholder until M2 wires
-// ovn-northd appctl scraping.
-type (
-	OVNNBView             interface{}
-	OVNSBView             interface{}
-	UnixCtlNorthdSnapshot interface{}
-)
 
 // Default-state shorthand used by registerCollector callers.
 const (
