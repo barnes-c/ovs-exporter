@@ -1,15 +1,21 @@
 FROM gcr.io/distroless/static-debian13:nonroot@sha256:963fa6c544fe5ce420f1f54fb88b6fb01479f054c8056d0f74cc2c6000df5240
 
+ARG COMMIT
+ARG DATE
+ARG VERSION
+
 LABEL io.prometheus.image.variant="distroless"
-LABEL maintainer="Christopher Barnes <github@barnes.biz>"
-LABEL org.opencontainers.image.authors="Christopher Barnes"
+LABEL org.opencontainers.image.authors="Christopher Barnes <github@barnes.biz>"
+LABEL org.opencontainers.image.created=${DATE}
 LABEL org.opencontainers.image.description="OTel-native Prometheus exporter for Open vSwitch (OVS)"
 LABEL org.opencontainers.image.documentation="https://github.com/barnes-c/ovs-exporter"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.revision=${COMMIT}
 LABEL org.opencontainers.image.source="https://github.com/barnes-c/ovs-exporter"
 LABEL org.opencontainers.image.title="ovs-exporter"
 LABEL org.opencontainers.image.url="https://github.com/barnes-c/ovs-exporter"
 LABEL org.opencontainers.image.vendor="Christopher Barnes"
+LABEL org.opencontainers.image.version=${VERSION}
 
 COPY ovs-exporter /bin/ovs-exporter
 
