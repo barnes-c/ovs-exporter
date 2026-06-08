@@ -1,1 +1,1 @@
-Christopher Barnes <christopher(dot)barnes(at)cern(dot).ch>
+Christopher Barnes <github@barnes.biz>
