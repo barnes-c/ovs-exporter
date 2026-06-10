@@ -14,6 +14,7 @@ import (
 	otelslog "go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/contrib/exporters/autoexport"
 	otelruntime "go.opentelemetry.io/contrib/instrumentation/runtime"
+	"go.opentelemetry.io/contrib/propagators/autoprop"
 	"go.opentelemetry.io/contrib/samplers/probability/consistent"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
@@ -116,6 +117,11 @@ func Setup(ctx context.Context, logger *slog.Logger, cfg Config) (*Result, error
 	if err := otelruntime.Start(otelruntime.WithMeterProvider(mp)); err != nil {
 		logger.Warn("Failed to start runtime instrumentation", "err", err)
 	}
+
+	// Install the global TextMapPropagator so otelhttp (and any other
+	// instrumentation hanging off the global) extracts incoming W3C
+	// traceparent / baggage headers. autoprop honours OTEL_PROPAGATORS
+	otel.SetTextMapPropagator(autoprop.NewTextMapPropagator())
 
 	tracer := otel.Tracer(scopeName)
 	if cfg.TracesExporter != "none" {
@@ -246,7 +252,11 @@ func buildLoggerProvider(ctx context.Context, res *resource.Resource, logger *sl
 		sdklog.WithResource(res),
 		sdklog.WithProcessor(sdklog.NewBatchProcessor(exp)),
 	)
-	otelHandler := otelslog.NewHandler(cfg.ServiceName, otelslog.WithLoggerProvider(lp))
+
+	otelHandler := otelslog.NewHandler(cfg.ServiceName,
+		otelslog.WithLoggerProvider(lp),
+		otelslog.WithSource(true),
+	)
 	return lp, slog.New(multiHandler{logger.Handler(), otelHandler}), nil
 }
 
