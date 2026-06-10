@@ -101,6 +101,8 @@ type Result struct {
 // the flag-derived selectors are ignored. ServiceName and PrometheusEnabled
 // continue to govern the Prom reader we always own.
 func Setup(ctx context.Context, logger *slog.Logger, cfg Config) (*Result, error) {
+	setSDKErrorHandler(logger)
+
 	if cfg.ConfigFile != "" {
 		return setupFromYAML(ctx, logger, cfg)
 	}
@@ -336,6 +338,12 @@ func parsePushExporters(s string) ([]string, error) {
 		out = append(out, k)
 	}
 	return out, nil
+}
+
+func setSDKErrorHandler(logger *slog.Logger) {
+	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
+		logger.Error("OTel SDK error", "err", err)
+	}))
 }
 
 // multiHandler fans out slog records to multiple handlers.
