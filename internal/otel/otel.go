@@ -13,6 +13,8 @@ import (
 
 	otelslog "go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/contrib/exporters/autoexport"
+	otelruntime "go.opentelemetry.io/contrib/instrumentation/runtime"
+	"go.opentelemetry.io/contrib/samplers/probability/consistent"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
@@ -109,6 +111,11 @@ func Setup(ctx context.Context, logger *slog.Logger, cfg Config) (*Result, error
 	otel.SetMeterProvider(mp)
 	shutdowns = append(shutdowns, mp.Shutdown)
 	meter := otel.Meter(scopeName)
+
+	// Auto-collect Go runtime metrics (goroutines, GC, heap)
+	if err := otelruntime.Start(otelruntime.WithMeterProvider(mp)); err != nil {
+		logger.Warn("Failed to start runtime instrumentation", "err", err)
+	}
 
 	tracer := otel.Tracer(scopeName)
 	if cfg.TracesExporter != "none" {
@@ -219,10 +226,11 @@ func buildTracerProvider(ctx context.Context, res *resource.Resource, cfg Config
 	if err != nil {
 		return nil, fmt.Errorf("autoexport span exporter: %w", err)
 	}
+
 	return sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exp),
 		sdktrace.WithResource(res),
-		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(cfg.TraceSampleRate))),
+		sdktrace.WithSampler(sdktrace.ParentBased(consistent.ProbabilityBased(cfg.TraceSampleRate))),
 	), nil
 }
 

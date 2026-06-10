@@ -19,6 +19,7 @@ import (
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/exporter-toolkit/web"
 	"github.com/prometheus/exporter-toolkit/web/kingpinflag"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/barnes-c/ovs-exporter/collector"
 	"github.com/barnes-c/ovs-exporter/internal/datasource"
@@ -252,7 +253,7 @@ func main() {
 	}
 	logger.Debug("Go MAXPROCS", "procs", runtime.GOMAXPROCS(0))
 
-	server := &http.Server{Handler: mux}
+	server := &http.Server{Handler: otelhttp.NewHandler(mux, "ovs-exporter")}
 	serveErrCh := make(chan error, 1)
 	go func() {
 		err := web.ListenAndServe(server, toolkitFlags, logger)
