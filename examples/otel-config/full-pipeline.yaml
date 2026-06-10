@@ -13,6 +13,7 @@
 # Spec: https://opentelemetry.io/docs/specs/otel/configuration/file-configuration/
 # Schema: https://github.com/open-telemetry/opentelemetry-configuration
 
+---
 file_format: "1.0-rc.1"
 
 # Resource attributes attached to every signal. service.name is required.
