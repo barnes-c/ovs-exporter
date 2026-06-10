@@ -3,6 +3,7 @@ FROM gcr.io/distroless/static-debian13:nonroot@sha256:963fa6c544fe5ce420f1f54fb8
 ARG COMMIT
 ARG DATE
 ARG VERSION
+ARG TARGETPLATFORM
 
 LABEL io.prometheus.image.variant="distroless"
 LABEL org.opencontainers.image.authors="Christopher Barnes <github@barnes.biz>"
@@ -17,7 +18,7 @@ LABEL org.opencontainers.image.url="https://github.com/barnes-c/ovs-exporter"
 LABEL org.opencontainers.image.vendor="Christopher Barnes"
 LABEL org.opencontainers.image.version=${VERSION}
 
-COPY ovs-exporter /bin/ovs-exporter
+COPY $TARGETPLATFORM/ovs-exporter /bin/ovs-exporter
 
 EXPOSE      10054
 ENTRYPOINT  [ "/bin/ovs-exporter" ]
