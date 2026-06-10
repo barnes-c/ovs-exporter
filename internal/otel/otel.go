@@ -59,6 +59,17 @@ type Config struct {
 	TraceSampleRate float64 // 0 < rate <= 1
 	PromMaxRequests int     // promhttp MaxRequestsInFlight; 0 → 40
 
+	// ConfigFile, when non-empty, switches Setup to the declarative YAML
+	// path: the file is parsed via go.opentelemetry.io/contrib/otelconf
+	// and drives the SDK end-to-end. The flag-derived fields above
+	// (MetricsExporter, TracesExporter, LogsExporter, Protocol,
+	// OTLPInterval, TraceSampleRate) are ignored — the YAML is the
+	// single source of truth, matching the OTel spec rule that
+	// environment variables MUST NOT apply when OTEL_CONFIG_FILE is set.
+	// ServiceName and PrometheusEnabled still control the Prom reader
+	// the exporter always owns. See internal/otel/config_file.go.
+	ConfigFile string
+
 	// PrometheusEnabled controls whether the OTel SDK's Prometheus reader
 	// is attached to the MeterProvider and a corresponding handler is
 	// returned for /metrics. Default is on; callers turn it off when the
@@ -85,7 +96,15 @@ type Result struct {
 // Setup constructs the configured OTel pipeline. The Prometheus reader is
 // always installed. Push exporters whose selector is "none" are skipped.
 // The returned Shutdown must be called at process exit.
+//
+// When cfg.ConfigFile is non-empty, Setup dispatches to setupFromYAML and
+// the flag-derived selectors are ignored. ServiceName and PrometheusEnabled
+// continue to govern the Prom reader we always own.
 func Setup(ctx context.Context, logger *slog.Logger, cfg Config) (*Result, error) {
+	if cfg.ConfigFile != "" {
+		return setupFromYAML(ctx, logger, cfg)
+	}
+
 	cfg.MetricsExporter = cmp.Or(cfg.MetricsExporter, "none")
 	cfg.TracesExporter = cmp.Or(cfg.TracesExporter, "none")
 	cfg.LogsExporter = cmp.Or(cfg.LogsExporter, "none")

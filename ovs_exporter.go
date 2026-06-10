@@ -90,6 +90,10 @@ var (
 		"web.prometheus",
 		"Serve the Prometheus scrape endpoint at --web.telemetry-path. Disable for OTLP-push-only deployments.",
 	).Default("true").Bool()
+	otelConfigFile = kingpin.Flag(
+		"otel.config-file",
+		"Path to an OTel declarative YAML config (otelconf). When set, all other --otel.* flags are ignored (OTel spec).",
+	).Envar("OTEL_CONFIG_FILE").Default("").String()
 
 	toolkitFlags = kingpinflag.AddFlags(kingpin.CommandLine, ":10054")
 )
@@ -159,6 +163,13 @@ func main() {
 		}
 	}
 
+	if *otelConfigFile != "" {
+		logger.Warn(
+			"--otel.config-file is set; --otel.* flags are ignored per the OTel spec (declarative config is exclusive)",
+			"config_file", *otelConfigFile,
+		)
+	}
+
 	rootCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
@@ -172,6 +183,7 @@ func main() {
 		LogsExporter:      *otelLogsExporter,
 		TraceSampleRate:   *otelTraceSampleRate,
 		PrometheusEnabled: *webPrometheus,
+		ConfigFile:        *otelConfigFile,
 	})
 	if err != nil {
 		logger.Error("Failed to set up OTel pipeline", "err", err)
