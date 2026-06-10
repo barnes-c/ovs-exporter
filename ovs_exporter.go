@@ -85,6 +85,10 @@ var (
 		"otel.service-name",
 		"OTel service.name resource attribute.",
 	).Envar("OTEL_SERVICE_NAME").Default("ovs-exporter").String()
+	webPrometheus = kingpin.Flag(
+		"web.prometheus",
+		"Serve the Prometheus scrape endpoint at --web.telemetry-path. Disable for OTLP-push-only deployments.",
+	).Default("true").Bool()
 
 	toolkitFlags = kingpinflag.AddFlags(kingpin.CommandLine, ":10054")
 )
@@ -94,20 +98,26 @@ var (
 // exporter-toolkit landing page at "/" (unless metricsPath itself is "/").
 func buildHandler(res *otel.Result, metricsPath string, readyChecks map[string]probes.Checker) (http.Handler, error) {
 	mux := http.NewServeMux()
-	mux.Handle(metricsPath, res.PromHandler)
+	if res.PromHandler != nil {
+		mux.Handle(metricsPath, res.PromHandler)
+	}
 	mux.Handle("/healthz", probes.Health())
 	mux.Handle("/readyz", probes.Ready(readyChecks))
 
 	if metricsPath != "/" {
+		links := []web.LandingLinks{}
+		if res.PromHandler != nil {
+			links = append(links, web.LandingLinks{Address: metricsPath, Text: "Metrics"})
+		}
+		links = append(links,
+			web.LandingLinks{Address: "/healthz", Text: "Health"},
+			web.LandingLinks{Address: "/readyz", Text: "Readiness"},
+		)
 		landing, err := web.NewLandingPage(web.LandingConfig{
 			Name:        "OVS Exporter",
-			Description: "OTel-native Prometheus exporter for Open vSwitch",
+			Description: "OTel-native Prometheus exporter for Open vSwitch (OVS)",
 			Version:     version.Info(),
-			Links: []web.LandingLinks{
-				{Address: metricsPath, Text: "Metrics"},
-				{Address: "/healthz", Text: "Health"},
-				{Address: "/readyz", Text: "Readiness"},
-			},
+			Links:       links,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("creating landing page: %w", err)
@@ -129,9 +139,21 @@ func main() {
 
 	runtime.GOMAXPROCS(*maxProcs)
 
-	if *otelOTLPEndpoint != "" {
-		if err := os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", *otelOTLPEndpoint); err != nil {
-			logger.Error("Failed to set OTEL_EXPORTER_OTLP_ENDPOINT", "err", err)
+	// Propagate the flag values into the env vars autoexport reads
+	// directly. Without this, autoexport falls back to its own defaults
+	// (e.g. http/protobuf for OTLP) when the user supplied a value only
+	// via --otel.* flags.
+	envFromFlag := map[string]string{
+		"OTEL_EXPORTER_OTLP_ENDPOINT": *otelOTLPEndpoint,
+		"OTEL_EXPORTER_OTLP_PROTOCOL": *otelProtocol,
+		"OTEL_METRIC_EXPORT_INTERVAL": fmt.Sprintf("%d", otelInterval.Milliseconds()),
+	}
+	for k, v := range envFromFlag {
+		if v == "" {
+			continue
+		}
+		if err := os.Setenv(k, v); err != nil {
+			logger.Error("Failed to set env var", "key", k, "err", err)
 			os.Exit(1)
 		}
 	}
@@ -140,14 +162,15 @@ func main() {
 	defer cancel()
 
 	otelResult, err := otel.Setup(rootCtx, logger, otel.Config{
-		ServiceName:     *otelServiceName,
-		ServiceVersion:  version.Version,
-		Protocol:        *otelProtocol,
-		OTLPInterval:    *otelInterval,
-		MetricsExporter: *otelMetricsExporter,
-		TracesExporter:  *otelTracesExporter,
-		LogsExporter:    *otelLogsExporter,
-		TraceSampleRate: *otelTraceSampleRate,
+		ServiceName:       *otelServiceName,
+		ServiceVersion:    version.Version,
+		Protocol:          *otelProtocol,
+		OTLPInterval:      *otelInterval,
+		MetricsExporter:   *otelMetricsExporter,
+		TracesExporter:    *otelTracesExporter,
+		LogsExporter:      *otelLogsExporter,
+		TraceSampleRate:   *otelTraceSampleRate,
+		PrometheusEnabled: *webPrometheus,
 	})
 	if err != nil {
 		logger.Error("Failed to set up OTel pipeline", "err", err)
