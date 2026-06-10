@@ -23,14 +23,21 @@ const testListenAddress = "localhost:11054"
 var testBinary = "./ovs-exporter"
 
 // setupOTelForTest builds the OTel pipeline with all push exporters set to "none"
-// so the test never tries to dial an OTLP collector.
+// so the test never tries to dial an OTLP collector. PrometheusEnabled mirrors
+// the default of the --web.prometheus flag.
 func setupOTelForTest(t *testing.T) *otel.Result {
 	t.Helper()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	res, err := otel.Setup(context.Background(), logger, otel.Config{
-		ServiceName:    "ovs-exporter-test",
-		ServiceVersion: "test",
+	return setupOTelForTestWith(t, otel.Config{
+		ServiceName:       "ovs-exporter-test",
+		ServiceVersion:    "test",
+		PrometheusEnabled: true,
 	})
+}
+
+func setupOTelForTestWith(t *testing.T, cfg otel.Config) *otel.Result {
+	t.Helper()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	res, err := otel.Setup(context.Background(), logger, cfg)
 	if err != nil {
 		t.Fatalf("otel.Setup: %v", err)
 	}
@@ -71,6 +78,49 @@ func TestBuildHandlerRoutes(t *testing.T) {
 				t.Errorf("body missing %q; got:\n%s", tt.wantSubstr, rec.Body.String())
 			}
 		})
+	}
+}
+
+// TestBuildHandlerPrometheusDisabled covers --web.prometheus=false: /metrics
+// stops being served, /healthz and /readyz keep working, and the landing
+// page no longer advertises the metrics link.
+func TestBuildHandlerPrometheusDisabled(t *testing.T) {
+	res := setupOTelForTestWith(t, otel.Config{
+		ServiceName:       "ovs-exporter-test",
+		ServiceVersion:    "test",
+		PrometheusEnabled: false,
+	})
+	if res.PromHandler != nil {
+		t.Fatalf("PromHandler should be nil when PrometheusEnabled=false")
+	}
+
+	h, err := buildHandler(res, "/metrics", nil)
+	if err != nil {
+		t.Fatalf("buildHandler: %v", err)
+	}
+
+	tests := []struct {
+		path     string
+		wantCode int
+	}{
+		{"/healthz", http.StatusOK},
+		{"/readyz", http.StatusOK},
+		{"/metrics", http.StatusNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tt.path, nil))
+			if rec.Code != tt.wantCode {
+				t.Errorf("status = %d, want %d", rec.Code, tt.wantCode)
+			}
+		})
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	if strings.Contains(rec.Body.String(), "Metrics") {
+		t.Errorf("landing page should not link Metrics when Prom is off; body:\n%s", rec.Body.String())
 	}
 }
 

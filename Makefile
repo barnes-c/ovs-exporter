@@ -39,6 +39,7 @@ vet:
 
 lint:
 	golangci-lint run --config .github/.golangci.yml ./...
+	yamllint -c .github/.yamllint .
 
 fmt:
 	$(GO) fmt ./...

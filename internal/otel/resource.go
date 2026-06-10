@@ -13,15 +13,17 @@ import (
 // service identity supplied by the caller.
 func buildResource(ctx context.Context, serviceName, serviceVersion string) (*resource.Resource, error) {
 	res, err := resource.New(ctx,
-		resource.WithHost(),
-		resource.WithProcess(),
-		resource.WithTelemetrySDK(),
-		resource.WithFromEnv(),
-		resource.WithSchemaURL(semconv.SchemaURL),
 		resource.WithAttributes(
 			semconv.ServiceName(serviceName),
 			semconv.ServiceVersion(serviceVersion),
 		),
+		resource.WithContainer(),
+		resource.WithFromEnv(),
+		resource.WithHost(),
+		resource.WithOS(),
+		resource.WithProcess(),
+		resource.WithSchemaURL(semconv.SchemaURL),
+		resource.WithTelemetrySDK(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("building OTel resource: %w", err)

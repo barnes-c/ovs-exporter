@@ -1,0 +1,76 @@
+# OTel declarative configuration for ovs-exporter.
+#
+# Pass via flag or env:
+#   ovs-exporter --otel.config-file=/etc/ovs-exporter/otel-config.yaml
+#   OTEL_CONFIG_FILE=/etc/ovs-exporter/otel-config.yaml ovs-exporter
+#
+# When this file is in effect, all --otel.* flags are ignored per the OTel
+# spec (matches the OTEL_CONFIG_FILE env-var behaviour). The Prometheus
+# reader is always managed by ovs-exporter — do NOT declare a
+# `meter_provider.readers[].pull:` block here, the exporter will refuse to
+# start.
+#
+# Spec: https://opentelemetry.io/docs/specs/otel/configuration/file-configuration/
+# Schema: https://github.com/open-telemetry/opentelemetry-configuration
+
+---
+file_format: "1.0-rc.1"
+
+# Resource attributes attached to every signal. service.name is required.
+# Override deployment.environment per host group via fleet automation.
+resource:
+  attributes:
+    - name: service.name
+      value: ovs-exporter
+    - name: service.namespace
+      value: openstack
+    - name: deployment.environment
+      value: prod
+
+# Tracecontext + baggage is the default in most stacks; declare it so
+# inbound spans (e.g. from a sidecar) are correctly propagated.
+propagator:
+  composite: [tracecontext, baggage]
+
+# Metric readers (OTLP push only — Prometheus is owned by ovs-exporter).
+# Drop the entire meter_provider block if you only want /metrics scraping
+# without pushing to a collector.
+meter_provider:
+  readers:
+    - periodic:
+        interval: 15000        # ms
+        timeout: 10000         # ms
+        exporter:
+          otlp_grpc:
+            endpoint: http://otel-collector.monitoring:4317
+            insecure: true
+
+# Traces — head-based sampling at 10% in prod is a typical default.
+# Increase to 1.0 (always_on) during incident debugging.
+tracer_provider:
+  processors:
+    - batch:
+        schedule_delay: 5000   # ms
+        export_timeout: 30000  # ms
+        max_queue_size: 2048
+        max_export_batch_size: 512
+        exporter:
+          otlp_grpc:
+            endpoint: http://otel-collector.monitoring:4317
+            insecure: true
+  sampler:
+    parent_based:
+      root:
+        trace_id_ratio_based:
+          ratio: 0.1
+
+# Logs are typically scraped from stdout by a node-level agent (Fluent
+# Bit / Vector / promtail). Enable the OTLP path here only if you want
+# log records to go through a collector instead.
+logger_provider:
+  processors:
+    - batch:
+        exporter:
+          otlp_grpc:
+            endpoint: http://otel-collector.monitoring:4317
+            insecure: true

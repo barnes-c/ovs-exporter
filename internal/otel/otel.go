@@ -7,10 +7,15 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	otelslog "go.opentelemetry.io/contrib/bridges/otelslog"
+	"go.opentelemetry.io/contrib/exporters/autoexport"
+	otelruntime "go.opentelemetry.io/contrib/instrumentation/runtime"
+	"go.opentelemetry.io/contrib/propagators/autoprop"
+	"go.opentelemetry.io/contrib/samplers/probability/consistent"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
@@ -53,11 +58,32 @@ type Config struct {
 	LogsExporter    string  // default "none"
 	TraceSampleRate float64 // 0 < rate <= 1
 	PromMaxRequests int     // promhttp MaxRequestsInFlight; 0 → 40
+
+	// ConfigFile, when non-empty, switches Setup to the declarative YAML
+	// path: the file is parsed via go.opentelemetry.io/contrib/otelconf
+	// and drives the SDK end-to-end. The flag-derived fields above
+	// (MetricsExporter, TracesExporter, LogsExporter, Protocol,
+	// OTLPInterval, TraceSampleRate) are ignored — the YAML is the
+	// single source of truth, matching the OTel spec rule that
+	// environment variables MUST NOT apply when OTEL_CONFIG_FILE is set.
+	// ServiceName and PrometheusEnabled still control the Prom reader
+	// the exporter always owns. See internal/otel/config_file.go.
+	ConfigFile string
+
+	// PrometheusEnabled controls whether the OTel SDK's Prometheus reader
+	// is attached to the MeterProvider and a corresponding handler is
+	// returned for /metrics. Default is on; callers turn it off when the
+	// exporter is used purely as an OTLP pusher. When false,
+	// Result.PromHandler is nil and the route is omitted from the HTTP
+	// mux.
+	PrometheusEnabled bool
 }
 
-// Result is what Setup returns. PromHandler is always non-nil — it serves
-// /metrics. Logger is the original logger by default; when LogsExporter is
-// not "none" it is tee'd to also forward records through the OTel log
+// Result is what Setup returns. PromHandler is non-nil when
+// Config.PrometheusEnabled is true (the default for normal callers) and
+// serves /metrics; it is nil when the caller disabled the Prom reader.
+// Logger is the original logger by default; when LogsExporter is not
+// "none" it is tee'd to also forward records through the OTel log
 // pipeline — callers should replace their logger with this one.
 type Result struct {
 	Meter       metric.Meter
@@ -70,7 +96,15 @@ type Result struct {
 // Setup constructs the configured OTel pipeline. The Prometheus reader is
 // always installed. Push exporters whose selector is "none" are skipped.
 // The returned Shutdown must be called at process exit.
+//
+// When cfg.ConfigFile is non-empty, Setup dispatches to setupFromYAML and
+// the flag-derived selectors are ignored. ServiceName and PrometheusEnabled
+// continue to govern the Prom reader we always own.
 func Setup(ctx context.Context, logger *slog.Logger, cfg Config) (*Result, error) {
+	if cfg.ConfigFile != "" {
+		return setupFromYAML(ctx, logger, cfg)
+	}
+
 	cfg.MetricsExporter = cmp.Or(cfg.MetricsExporter, "none")
 	cfg.TracesExporter = cmp.Or(cfg.TracesExporter, "none")
 	cfg.LogsExporter = cmp.Or(cfg.LogsExporter, "none")
@@ -97,6 +131,16 @@ func Setup(ctx context.Context, logger *slog.Logger, cfg Config) (*Result, error
 	otel.SetMeterProvider(mp)
 	shutdowns = append(shutdowns, mp.Shutdown)
 	meter := otel.Meter(scopeName)
+
+	// Auto-collect Go runtime metrics (goroutines, GC, heap)
+	if err := otelruntime.Start(otelruntime.WithMeterProvider(mp)); err != nil {
+		logger.Warn("Failed to start runtime instrumentation", "err", err)
+	}
+
+	// Install the global TextMapPropagator so otelhttp (and any other
+	// instrumentation hanging off the global) extracts incoming W3C
+	// traceparent / baggage headers. autoprop honours OTEL_PROPAGATORS
+	otel.SetTextMapPropagator(autoprop.NewTextMapPropagator())
 
 	tracer := otel.Tracer(scopeName)
 	if cfg.TracesExporter != "none" {
@@ -151,25 +195,33 @@ func Setup(ctx context.Context, logger *slog.Logger, cfg Config) (*Result, error
 
 // buildMeterProvider assembles the MeterProvider. The Prometheus reader is
 // always present; additional push readers come from the parsed
-// MetricsExporter list. Histograms are aggregated as native (base-2)
-// exponential histograms — Prom 3.0+ ingests these directly.
+// MetricsExporter list (each kind resolved through autoexport, which honours
+// the OTEL_EXPORTER_OTLP_* env vars). Histograms are aggregated as native
+// (base-2) exponential histograms — Prom 3.0+ ingests these directly.
 func buildMeterProvider(ctx context.Context, res *resource.Resource, cfg Config) (*sdkmetric.MeterProvider, http.Handler, error) {
-	promReader, promHandler, err := newPromReader(cfg.PromMaxRequests)
-	if err != nil {
-		return nil, nil, err
+	var (
+		readers     []sdkmetric.Reader
+		promHandler http.Handler
+	)
+	if cfg.PrometheusEnabled {
+		r, h, err := newPromReader(cfg.PromMaxRequests)
+		if err != nil {
+			return nil, nil, err
+		}
+		readers = append(readers, r)
+		promHandler = h
 	}
-	readers := []sdkmetric.Reader{promReader}
 
 	pushKinds, err := parsePushExporters(cfg.MetricsExporter)
 	if err != nil {
 		return nil, nil, err
 	}
 	for _, kind := range pushKinds {
-		exp, err := newMetricExporter(ctx, kind, cfg.Protocol)
+		r, err := metricReaderForKind(ctx, kind)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("autoexport metric reader %q: %w", kind, err)
 		}
-		readers = append(readers, sdkmetric.NewPeriodicReader(exp, sdkmetric.WithInterval(cfg.OTLPInterval)))
+		readers = append(readers, r)
 	}
 
 	opts := []sdkmetric.Option{
@@ -192,34 +244,79 @@ func buildMeterProvider(ctx context.Context, res *resource.Resource, cfg Config)
 }
 
 func buildTracerProvider(ctx context.Context, res *resource.Resource, cfg Config) (*sdktrace.TracerProvider, error) {
-	exp, err := newTraceExporter(ctx, cfg.TracesExporter, cfg.Protocol)
+	exp, err := exporterForKind(ctx, "OTEL_TRACES_EXPORTER", cfg.TracesExporter,
+		func(c context.Context) (sdktrace.SpanExporter, error) {
+			return autoexport.NewSpanExporter(c)
+		})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("autoexport span exporter: %w", err)
 	}
+
 	return sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exp),
 		sdktrace.WithResource(res),
-		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(cfg.TraceSampleRate))),
+		sdktrace.WithSampler(sdktrace.ParentBased(consistent.ProbabilityBased(cfg.TraceSampleRate))),
 	), nil
 }
 
 func buildLoggerProvider(ctx context.Context, res *resource.Resource, logger *slog.Logger, cfg Config) (*sdklog.LoggerProvider, *slog.Logger, error) {
-	exp, err := newLogExporter(ctx, cfg.LogsExporter, cfg.Protocol)
+	exp, err := exporterForKind(ctx, "OTEL_LOGS_EXPORTER", cfg.LogsExporter,
+		func(c context.Context) (sdklog.Exporter, error) {
+			return autoexport.NewLogExporter(c)
+		})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("autoexport log exporter: %w", err)
 	}
 	lp := sdklog.NewLoggerProvider(
 		sdklog.WithResource(res),
 		sdklog.WithProcessor(sdklog.NewBatchProcessor(exp)),
 	)
-	otelHandler := otelslog.NewHandler(cfg.ServiceName, otelslog.WithLoggerProvider(lp))
+
+	otelHandler := otelslog.NewHandler(cfg.ServiceName,
+		otelslog.WithLoggerProvider(lp),
+		otelslog.WithSource(true),
+	)
 	return lp, slog.New(multiHandler{logger.Handler(), otelHandler}), nil
+}
+
+// metricReaderForKind resolves one push-metric kind via autoexport. The
+// contrib package keys off OTEL_METRICS_EXPORTER, so we set the env var
+// for the duration of the call to feed it our parsed kind.
+func metricReaderForKind(ctx context.Context, kind string) (sdkmetric.Reader, error) {
+	restore := setEnvScoped("OTEL_METRICS_EXPORTER", kind)
+	defer restore()
+	return autoexport.NewMetricReader(ctx)
+}
+
+// exporterForKind is the generic shim for traces and logs: scope the
+// signal-selector env var to the caller's value and let autoexport build
+// the exporter.
+func exporterForKind[T any](ctx context.Context, envKey, kind string, factory func(context.Context) (T, error)) (T, error) {
+	restore := setEnvScoped(envKey, kind)
+	defer restore()
+	return factory(ctx)
+}
+
+// setEnvScoped temporarily sets env[key]=val and returns a restore func
+// that reinstates the previous value (or unsets if there was none).
+func setEnvScoped(key, val string) func() {
+	prev, had := os.LookupEnv(key)
+	_ = os.Setenv(key, val)
+	return func() {
+		if had {
+			_ = os.Setenv(key, prev)
+		} else {
+			_ = os.Unsetenv(key)
+		}
+	}
 }
 
 // parsePushExporters splits the comma-separated MetricsExporter value into
 // the non-Prom kinds that need a PeriodicReader. "none" or empty yields nil.
-// "prometheus" is accepted but ignored — the Prom reader is always-on. Other
-// entries are normalized (trimmed, deduped).
+// "prometheus" is accepted but ignored — the Prom reader is always-on, and
+// autoexport's "prometheus" selector would otherwise spawn a second HTTP
+// listener that clashes with /metrics. Other entries are normalized
+// (trimmed, deduped).
 func parsePushExporters(s string) ([]string, error) {
 	if strings.TrimSpace(s) == "none" {
 		return nil, nil
