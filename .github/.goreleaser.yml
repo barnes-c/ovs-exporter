@@ -11,6 +11,7 @@ builds:
   - id: ovs-exporter
     binary: ovs-exporter
     main: .
+    mod_timestamp: "{{ .CommitTimestamp }}"
     env:
       - CGO_ENABLED=0
     goos:
@@ -89,6 +90,16 @@ dockers_v2:
       DATE: "{{ .Date }}"
       VERSION: "{{ .Version }}"
 
+source:
+  enabled: true
+  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
+
+sboms:
+  - id: archive
+    artifacts: archive
+  - id: source
+    artifacts: source
+
 checksum:
   name_template: checksums.txt
 
@@ -129,3 +140,29 @@ release:
     name: ovs-exporter
   draft: true
   prerelease: auto
+  header: |
+    ## ovs-exporter {{ .Tag }}
+
+    Container images:
+    - `ghcr.io/barnes-c/ovs-exporter:{{ .Version }}`
+    - `docker.io/barnesbiz/ovs-exporter:{{ .Version }}`
+  footer: |
+    ## Verification
+
+    All artifacts are signed with [cosign](https://github.com/sigstore/cosign) keyless signing.
+
+    Verify the checksums bundle:
+    ```
+    cosign verify-blob \
+      --bundle checksums.txt.bundle \
+      --certificate-identity-regexp "^https://github.com/barnes-c/ovs-exporter/" \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+      checksums.txt
+    ```
+
+    Verify a container image:
+    ```
+    cosign verify ghcr.io/barnes-c/ovs-exporter:{{ .Version }} \
+      --certificate-identity-regexp "^https://github.com/barnes-c/ovs-exporter/" \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com
+    ```
