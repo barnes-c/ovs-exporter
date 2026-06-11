@@ -5,14 +5,20 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
-  packages: write
-  id-token: write
+  contents: read
 
 jobs:
   goreleaser:
     name: GoReleaser
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    outputs:
+      hashes: ${{ steps.hashes.outputs.hashes }}
+      ghcr-digest: ${{ steps.images.outputs.ghcr-digest }}
+      dockerhub-digest: ${{ steps.images.outputs.dockerhub-digest }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -51,3 +57,96 @@ jobs:
           args: release --clean --config .github/.goreleaser.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Attest an SPDX SBOM as an in-toto attestation on every pushed
+      # image. Goreleaser's sboms block only covers archive/source/binary/
+      # package artifacts; container SBOMs have to be generated and bound
+      # to the image digest separately.
+      - name: Attest container SBOMs
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          set -euo pipefail
+          jq -r '.[] | select(.type=="Published Docker Image" or .type=="Docker Manifest") | "\(.name) \(.extra.Digest)"' dist/artifacts.json \
+            | sort -u \
+            | while read -r name digest; do
+                [ -z "$name" ] && continue
+                ref="${name%@*}"
+                ref="${ref%:*}@${digest}"
+                echo "::group::SBOM for $ref"
+                syft -q "$ref" -o spdx-json=sbom.spdx.json
+                cosign attest --type spdxjson --predicate sbom.spdx.json --yes "$ref"
+                echo "::endgroup::"
+              done
+
+      # Base64-encoded list of `<sha256>  <filename>` for every release
+      # artifact users may download directly (archives + nfpm packages).
+      # Consumed by the SLSA generic generator below.
+      - name: Aggregate binary/package hashes for SLSA
+        id: hashes
+        run: |
+          set -euo pipefail
+          cd dist
+          files=$(jq -r '.[] | select(.type=="Archive" or .type=="Linux Package") | .path' artifacts.json | sed 's|^dist/||')
+          echo "$files" | xargs sha256sum | base64 -w0 > hashes.b64
+          echo "hashes=$(cat hashes.b64)" >> "$GITHUB_OUTPUT"
+
+      # Manifest-list digest per registry. With dockers_v2 the content is
+      # identical across registries so the digest is the same, but the
+      # SLSA container generator wants the (registry, image, digest)
+      # tuple, so we expose them as separate outputs.
+      - name: Extract image digests
+        id: images
+        run: |
+          set -euo pipefail
+          ghcr=$(jq -r '.[] | select((.type=="Published Docker Image" or .type=="Docker Manifest") and (.name|startswith("ghcr.io/"))) | .extra.Digest' dist/artifacts.json | head -n1)
+          hub=$(jq -r '.[] | select((.type=="Published Docker Image" or .type=="Docker Manifest") and (.name|startswith("docker.io/"))) | .extra.Digest' dist/artifacts.json | head -n1)
+          echo "ghcr-digest=${ghcr}" >> "$GITHUB_OUTPUT"
+          echo "dockerhub-digest=${hub}" >> "$GITHUB_OUTPUT"
+
+  # SLSA L3 provenance for the binary tarballs and nfpm packages,
+  # attached to the GitHub release. The reusable workflow MUST be
+  # referenced by tag (not SHA) — its OIDC identity chain depends on it.
+  slsa-binaries:
+    needs: goreleaser
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.goreleaser.outputs.hashes }}
+      upload-assets: true
+      draft-release: true
+
+  # SLSA L3 provenance for the GHCR image. One reusable-workflow call
+  # per registry because credentials differ and reusable-workflow
+  # secrets cannot be selected per matrix entry.
+  slsa-ghcr:
+    needs: goreleaser
+    permissions:
+      id-token: write
+      packages: write
+      contents: read
+      actions: read
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    with:
+      image: ghcr.io/barnes-c/ovs-exporter
+      digest: ${{ needs.goreleaser.outputs.ghcr-digest }}
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+  slsa-dockerhub:
+    needs: goreleaser
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    with:
+      image: docker.io/barnesbiz/ovs-exporter
+      digest: ${{ needs.goreleaser.outputs.dockerhub-digest }}
+    secrets:
+      registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
+      registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
