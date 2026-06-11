@@ -63,7 +63,7 @@ jobs:
           COSIGN_EXPERIMENTAL: "1"
         run: |
           set -euo pipefail
-          jq -r '[.[] | select(.type=="Docker Image")] | group_by(.name | split(":")[0] + "@" + .extra.Digest) | .[] | .[0] | "\(.name|split(":")[0]) \(.extra.Digest)"' dist/artifacts.json \
+          jq -r '[.[] | select(.type=="Docker Image")] | group_by((.name | split(":")[0]) + "@" + .extra.Digest) | .[] | .[0] | "\(.name|split(":")[0]) \(.extra.Digest)"' dist/artifacts.json \
             | while read -r repo digest; do
                 [ -z "$repo" ] && continue
                 ref="${repo}@${digest}"
