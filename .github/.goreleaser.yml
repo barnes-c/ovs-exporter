@@ -37,7 +37,6 @@ archives:
     files:
       - LICENSE
       - README.md
-      - CHANGELOG.md
 
 nfpms:
   - id: packages
@@ -99,6 +98,10 @@ sboms:
     artifacts: archive
   - id: source
     artifacts: source
+  - id: binary
+    artifacts: binary
+  - id: package
+    artifacts: package
 
 checksum:
   name_template: checksums.txt
