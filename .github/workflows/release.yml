@@ -63,12 +63,10 @@ jobs:
           COSIGN_EXPERIMENTAL: "1"
         run: |
           set -euo pipefail
-          jq -r '.[] | select(.type=="Published Docker Image" or .type=="Docker Manifest") | "\(.name) \(.extra.Digest)"' dist/artifacts.json \
-            | sort -u \
-            | while read -r name digest; do
-                [ -z "$name" ] && continue
-                ref="${name%@*}"
-                ref="${ref%:*}@${digest}"
+          jq -r '[.[] | select(.type=="Docker Image")] | group_by(.name | split(":")[0] + "@" + .extra.Digest) | .[] | .[0] | "\(.name|split(":")[0]) \(.extra.Digest)"' dist/artifacts.json \
+            | while read -r repo digest; do
+                [ -z "$repo" ] && continue
+                ref="${repo}@${digest}"
                 echo "::group::SBOM for $ref"
                 syft -q "$ref" -o spdx-json=sbom.spdx.json
                 cosign attest --type spdxjson --predicate sbom.spdx.json --yes "$ref"
@@ -88,8 +86,8 @@ jobs:
         id: images
         run: |
           set -euo pipefail
-          ghcr=$(jq -r '.[] | select((.type=="Published Docker Image" or .type=="Docker Manifest") and (.name|startswith("ghcr.io/"))) | .extra.Digest' dist/artifacts.json | head -n1)
-          hub=$(jq -r '.[] | select((.type=="Published Docker Image" or .type=="Docker Manifest") and (.name|startswith("docker.io/"))) | .extra.Digest' dist/artifacts.json | head -n1)
+          ghcr=$(jq -r '.[] | select(.type=="Docker Image" and (.name|startswith("ghcr.io/"))) | .extra.Digest' dist/artifacts.json | head -n1)
+          hub=$(jq -r '.[] | select(.type=="Docker Image" and (.name|startswith("docker.io/"))) | .extra.Digest' dist/artifacts.json | head -n1)
           echo "ghcr-digest=${ghcr}" >> "$GITHUB_OUTPUT"
           echo "dockerhub-digest=${hub}" >> "$GITHUB_OUTPUT"
 
