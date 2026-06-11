@@ -56,7 +56,7 @@ jobs:
               cat /tmp/added.txt
               echo '```'
               echo
-              echo "Review each to decide whether ovs-exporter should expose a metric for it."
+              echo "If you are a user of this exporter and you which to have one of those metrics exposed, please write a comment!"
             else
               echo "_None — vendored floor is current with upstream._"
             fi
