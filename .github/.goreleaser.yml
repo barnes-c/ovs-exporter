@@ -37,7 +37,6 @@ archives:
     files:
       - LICENSE
       - README.md
-      - CHANGELOG.md
 
 nfpms:
   - id: packages
