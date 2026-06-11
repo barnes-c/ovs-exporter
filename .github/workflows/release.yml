@@ -58,10 +58,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Attest an SPDX SBOM as an in-toto attestation on every pushed
-      # image. Goreleaser's sboms block only covers archive/source/binary/
-      # package artifacts; container SBOMs have to be generated and bound
-      # to the image digest separately.
       - name: Attest container SBOMs
         env:
           COSIGN_EXPERIMENTAL: "1"
@@ -79,9 +75,6 @@ jobs:
                 echo "::endgroup::"
               done
 
-      # Base64-encoded list of `<sha256>  <filename>` for every release
-      # artifact users may download directly (archives + nfpm packages).
-      # Consumed by the SLSA generic generator below.
       - name: Aggregate binary/package hashes for SLSA
         id: hashes
         run: |
@@ -91,10 +84,6 @@ jobs:
           echo "$files" | xargs sha256sum | base64 -w0 > hashes.b64
           echo "hashes=$(cat hashes.b64)" >> "$GITHUB_OUTPUT"
 
-      # Manifest-list digest per registry. With dockers_v2 the content is
-      # identical across registries so the digest is the same, but the
-      # SLSA container generator wants the (registry, image, digest)
-      # tuple, so we expose them as separate outputs.
       - name: Extract image digests
         id: images
         run: |
@@ -104,9 +93,6 @@ jobs:
           echo "ghcr-digest=${ghcr}" >> "$GITHUB_OUTPUT"
           echo "dockerhub-digest=${hub}" >> "$GITHUB_OUTPUT"
 
-  # SLSA L3 provenance for the binary tarballs and nfpm packages,
-  # attached to the GitHub release. The reusable workflow MUST be
-  # referenced by tag (not SHA) — its OIDC identity chain depends on it.
   slsa-binaries:
     needs: goreleaser
     permissions:
@@ -118,10 +104,8 @@ jobs:
       base64-subjects: ${{ needs.goreleaser.outputs.hashes }}
       upload-assets: true
       draft-release: true
+      private-repository: true
 
-  # SLSA L3 provenance for the GHCR image. One reusable-workflow call
-  # per registry because credentials differ and reusable-workflow
-  # secrets cannot be selected per matrix entry.
   slsa-ghcr:
     needs: goreleaser
     permissions:
@@ -134,6 +118,7 @@ jobs:
       image: ghcr.io/barnes-c/ovs-exporter
       digest: ${{ needs.goreleaser.outputs.ghcr-digest }}
       registry-username: ${{ github.actor }}
+      private-repository: true
     secrets:
       registry-password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -148,6 +133,7 @@ jobs:
     with:
       image: docker.io/barnesbiz/ovs-exporter
       digest: ${{ needs.goreleaser.outputs.dockerhub-digest }}
+      private-repository: true
     secrets:
       registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
       registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
