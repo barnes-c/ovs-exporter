@@ -121,7 +121,7 @@ docker_signs:
     args:
       - sign
       - --yes
-      - ${artifact}
+      - ${artifact}@${digest}
 
 release:
   github:
