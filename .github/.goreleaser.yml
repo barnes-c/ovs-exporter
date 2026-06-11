@@ -11,6 +11,7 @@ builds:
   - id: ovs-exporter
     binary: ovs-exporter
     main: .
+    mod_timestamp: "{{ .CommitTimestamp }}"
     env:
       - CGO_ENABLED=0
     goos:
@@ -89,6 +90,16 @@ dockers_v2:
       DATE: "{{ .Date }}"
       VERSION: "{{ .Version }}"
 
+source:
+  enabled: true
+  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
+
+sboms:
+  - id: archive
+    artifacts: archive
+  - id: source
+    artifacts: source
+
 checksum:
   name_template: checksums.txt
 
@@ -121,7 +132,7 @@ docker_signs:
     args:
       - sign
       - --yes
-      - ${artifact}
+      - ${artifact}@${digest}
 
 release:
   github:
@@ -129,3 +140,39 @@ release:
     name: ovs-exporter
   draft: true
   prerelease: auto
+  header: |
+    ## ovs-exporter {{ .Tag }}
+
+    ### Container images
+    - `ghcr.io/barnes-c/ovs-exporter:{{ .Version }}`
+    - `docker.io/barnesbiz/ovs-exporter:{{ .Version }}`
+
+    ### Binaries
+    Linux `amd64` / `arm64` tarballs are attached below (`ovs-exporter_{{ .Version }}_linux_*.tar.gz`).
+
+    ### Packages
+    `.deb` and `.rpm` packages for `amd64` / `arm64` are attached below.
+    Install systemd unit at `/usr/lib/systemd/system/ovs-exporter.service`.
+
+    ### Source & SBOMs
+    Source tarball (`ovs-exporter_{{ .Version }}_source.tar.gz`) and SPDX SBOMs (`*.sbom.json`) are attached for supply-chain verification.
+  footer: |
+    ## Verification
+
+    All artifacts are signed with [cosign](https://github.com/sigstore/cosign) keyless signing.
+
+    Verify the checksums bundle:
+    ```
+    cosign verify-blob \
+      --bundle checksums.txt.bundle \
+      --certificate-identity-regexp "^https://github.com/barnes-c/ovs-exporter/" \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+      checksums.txt
+    ```
+
+    Verify a container image:
+    ```
+    cosign verify ghcr.io/barnes-c/ovs-exporter:{{ .Version }} \
+      --certificate-identity-regexp "^https://github.com/barnes-c/ovs-exporter/" \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com
+    ```
