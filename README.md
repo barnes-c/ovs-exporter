@@ -3,6 +3,8 @@
 [![GitHub Release](https://img.shields.io/github/v/release/barnes-c/ovs-exporter)](https://github.com/barnes-c/ovs-exporter/releases/latest)
 [![Build Status](https://github.com/barnes-c/ovs-exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/barnes-c/ovs-exporter/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/barnes-c/ovs-exporter)](https://goreportcard.com/report/github.com/barnes-c/ovs-exporter)
+[![GHCR](https://img.shields.io/badge/ghcr.io-barnes--c%2Fovs--exporter-blue?logo=github)](https://github.com/barnes-c/ovs-exporter/pkgs/container/ovs-exporter)
+[![Docker Hub](https://img.shields.io/docker/pulls/barnesbiz/ovs-exporter?logo=docker)](https://hub.docker.com/r/barnesbiz/ovs-exporter)
 
 OTel-native Prometheus exporter for [Open vSwitch (OVS)](https://www.openvswitch.org/).
 
