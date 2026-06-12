@@ -2,6 +2,8 @@
 
 Thanks for taking the time to look at this project.
 
+If this project is useful to you, a star on the repo would be appreciated.
+
 ## A note on participation
 
 Issues, discussions, and pull requests on this repository are for humans.
