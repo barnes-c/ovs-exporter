@@ -61,7 +61,7 @@ The OTel pipeline is entirely environment-driven; see the [OTel SDK env var spec
 | `OTEL_SERVICE_NAME`           | Resource `service.name` (default `ovs-exporter`)                           |
 | `OTEL_CONFIG_FILE`            | Path to `otelconf` YAML; overrides all other `OTEL_*` vars                 |
 
-The three exporter selectors default to `none` instead of the spec default `otlp` — the exporter stays silent until OTLP is opted in, so a fresh install doesn't spam connection errors at `localhost:4317`.
+The three exporter selectors default to `none` instead of the spec default `otlp`. The OTel exporters stays silent until OTLP is opted in.
 
 Traces cover the scrape pipeline (`ovsdb`, `unixctl-ovs`, HTTP handler). Logs are emitted via the OTel logs SDK when an exporter is set.
 
