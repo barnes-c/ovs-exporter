@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -52,44 +53,12 @@ var (
 	cacheTTL = kingpin.Flag(
 		"cache.ttl",
 		"TTL between successive unixctl scrapes. ovsdb data is monitor-cached and ignores this.",
-	).Default("15s").Duration()
+	).Default("60s").Duration()
 
-	otelMetricsExporter = kingpin.Flag(
-		"otel.metrics-exporter",
-		"Comma-separated push exporters; /metrics is always served. Values: otlp, console, none.",
-	).Envar("OTEL_METRICS_EXPORTER").Default("").String()
-	otelTracesExporter = kingpin.Flag(
-		"otel.traces-exporter",
-		"Traces exporter. Values: otlp, console, none.",
-	).Envar("OTEL_TRACES_EXPORTER").Default("").String()
-	otelLogsExporter = kingpin.Flag(
-		"otel.logs-exporter",
-		"Logs exporter. Values: otlp, console, none.",
-	).Envar("OTEL_LOGS_EXPORTER").Default("").String()
-	otelOTLPEndpoint = kingpin.Flag(
-		"otel.otlp.endpoint",
-		"OTLP collector endpoint (e.g. localhost:4317). Sets OTEL_EXPORTER_OTLP_ENDPOINT when provided.",
-	).Envar("OTEL_EXPORTER_OTLP_ENDPOINT").Default("").String()
-	otelProtocol = kingpin.Flag(
-		"otel.otlp.protocol",
-		"OTLP transport protocol. Values: grpc, http/protobuf.",
-	).Envar("OTEL_EXPORTER_OTLP_PROTOCOL").Default("grpc").String()
-	otelInterval = kingpin.Flag(
-		"otel.otlp.interval",
-		"OTLP push interval.",
-	).Default("15s").Duration()
-	otelServiceName = kingpin.Flag(
-		"otel.service-name",
-		"OTel service.name resource attribute.",
-	).Envar("OTEL_SERVICE_NAME").Default("ovs-exporter").String()
 	webPrometheus = kingpin.Flag(
 		"web.prometheus",
 		"Serve the Prometheus scrape endpoint at --web.telemetry-path. Disable for OTLP-push-only deployments.",
 	).Default("true").Bool()
-	otelConfigFile = kingpin.Flag(
-		"otel.config-file",
-		"Path to an OTel declarative YAML config (otelconf). When set, all other --otel.* flags are ignored (OTel spec).",
-	).Envar("OTEL_CONFIG_FILE").Default("").String()
 
 	toolkitFlags = kingpinflag.AddFlags(kingpin.CommandLine, ":10054")
 )
@@ -140,45 +109,17 @@ func main() {
 
 	runtime.GOMAXPROCS(*maxProcs)
 
-	// Propagate the flag values into the env vars autoexport reads
-	// directly. Without this, autoexport falls back to its own defaults
-	// (e.g. http/protobuf for OTLP) when the user supplied a value only
-	// via --otel.* flags.
-	envFromFlag := map[string]string{
-		"OTEL_EXPORTER_OTLP_ENDPOINT": *otelOTLPEndpoint,
-		"OTEL_EXPORTER_OTLP_PROTOCOL": *otelProtocol,
-		"OTEL_METRIC_EXPORT_INTERVAL": fmt.Sprintf("%d", otelInterval.Milliseconds()),
-	}
-	for k, v := range envFromFlag {
-		if v == "" {
-			continue
-		}
-		if err := os.Setenv(k, v); err != nil {
-			logger.Error("Failed to set env var", "key", k, "err", err)
-			os.Exit(1)
-		}
-	}
-
-	if *otelConfigFile != "" {
-		logger.Warn(
-			"--otel.config-file is set; --otel.* flags are ignored per the OTel spec (declarative config is exclusive)",
-			"config_file", *otelConfigFile,
-		)
-	}
-
 	rootCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
 	otelResult, err := otel.Setup(rootCtx, logger, otel.Config{
-		ServiceName:       *otelServiceName,
+		ServiceName:       cmp.Or(os.Getenv("OTEL_SERVICE_NAME"), "ovs-exporter"),
 		ServiceVersion:    version.Version,
-		Protocol:          *otelProtocol,
-		OTLPInterval:      *otelInterval,
-		MetricsExporter:   *otelMetricsExporter,
-		TracesExporter:    *otelTracesExporter,
-		LogsExporter:      *otelLogsExporter,
+		MetricsExporter:   cmp.Or(os.Getenv("OTEL_METRICS_EXPORTER"), "none"),
+		TracesExporter:    cmp.Or(os.Getenv("OTEL_TRACES_EXPORTER"), "none"),
+		LogsExporter:      cmp.Or(os.Getenv("OTEL_LOGS_EXPORTER"), "none"),
 		PrometheusEnabled: *webPrometheus,
-		ConfigFile:        *otelConfigFile,
+		ConfigFile:        os.Getenv("OTEL_CONFIG_FILE"),
 	})
 	if err != nil {
 		logger.Error("Failed to set up OTel pipeline", "err", err)

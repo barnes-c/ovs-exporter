@@ -12,9 +12,12 @@ OPTIONS=""
 
 # ---- Examples --------------------------------------------------------------
 
-# Push metrics to an OTLP collector in addition to serving /metrics:
-# OPTIONS="--otel.metrics-exporter=otlp \
-#          --otel.otlp.endpoint=otel-collector.monitoring:4317"
+# Push metrics to an OTLP collector in addition to serving /metrics.
+# The exporter selector stays a flag; OTLP transport is configured via
+# the standard OTel SDK env vars (see the OTel spec for the full list).
+# OPTIONS="--otel.metrics-exporter=otlp"
+# OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector.monitoring:4317
+# OTEL_EXPORTER_OTLP_PROTOCOL=grpc
 
 # Enable an opt-in cardinality collector. READ the README cardinality math
 # (`Collectors` > `Opt-in`) before turning any of these on at scale.
