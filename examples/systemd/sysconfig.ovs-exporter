@@ -13,9 +13,9 @@ OPTIONS=""
 # ---- Examples --------------------------------------------------------------
 
 # Push metrics to an OTLP collector in addition to serving /metrics.
-# The exporter selector stays a flag; OTLP transport is configured via
-# the standard OTel SDK env vars (see the OTel spec for the full list).
-# OPTIONS="--otel.metrics-exporter=otlp"
+# The OTel pipeline is entirely env-driven; see:
+#   https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/
+# OTEL_METRICS_EXPORTER=otlp
 # OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector.monitoring:4317
 # OTEL_EXPORTER_OTLP_PROTOCOL=grpc
 

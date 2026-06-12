@@ -63,6 +63,14 @@ var (
 	toolkitFlags = kingpinflag.AddFlags(kingpin.CommandLine, ":10054")
 )
 
+const otelHelp = `OTel pipeline configuration is environment-driven; see the spec for the
+full list of OTEL_* variables:
+
+  https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/
+
+Note: OTEL_{METRICS,TRACES,LOGS}_EXPORTER default to "none" here (the
+spec default is "otlp"), so the exporter is silent until OTLP is opted in.`
+
 // buildHandler wires the HTTP routes served by the exporter: the OTel
 // Prometheus handler at metricsPath, healthz/readyz probes, and the
 // exporter-toolkit landing page at "/" (unless metricsPath itself is "/").
@@ -103,6 +111,7 @@ func main() {
 	kingpin.Version(version.Print("ovs-exporter"))
 	kingpin.CommandLine.UsageWriter(os.Stdout)
 	kingpin.HelpFlag.Short('h')
+	kingpin.CommandLine.Help = otelHelp
 	kingpin.Parse()
 
 	logger := promslog.New(promslogConfig)
