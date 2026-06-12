@@ -15,7 +15,6 @@ import (
 	"go.opentelemetry.io/contrib/exporters/autoexport"
 	otelruntime "go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/contrib/propagators/autoprop"
-	"go.opentelemetry.io/contrib/samplers/probability/consistent"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
@@ -53,17 +52,16 @@ type Config struct {
 	ServiceVersion  string
 	Protocol        string // OTLP transport: "grpc" | "http/protobuf"
 	OTLPInterval    time.Duration
-	MetricsExporter string  // push exporters; default "none"
-	TracesExporter  string  // default "none"
-	LogsExporter    string  // default "none"
-	TraceSampleRate float64 // 0 < rate <= 1
-	PromMaxRequests int     // promhttp MaxRequestsInFlight; 0 → 40
+	MetricsExporter string // push exporters; default "none"
+	TracesExporter  string // default "none"
+	LogsExporter    string // default "none"
+	PromMaxRequests int    // promhttp MaxRequestsInFlight; 0 → 40
 
 	// ConfigFile, when non-empty, switches Setup to the declarative YAML
 	// path: the file is parsed via go.opentelemetry.io/contrib/otelconf
 	// and drives the SDK end-to-end. The flag-derived fields above
 	// (MetricsExporter, TracesExporter, LogsExporter, Protocol,
-	// OTLPInterval, TraceSampleRate) are ignored — the YAML is the
+	// OTLPInterval) are ignored — the YAML is the
 	// single source of truth, matching the OTel spec rule that
 	// environment variables MUST NOT apply when OTEL_CONFIG_FILE is set.
 	// ServiceName and PrometheusEnabled still control the Prom reader
@@ -112,7 +110,6 @@ func Setup(ctx context.Context, logger *slog.Logger, cfg Config) (*Result, error
 	cfg.LogsExporter = cmp.Or(cfg.LogsExporter, "none")
 	cfg.Protocol = cmp.Or(cfg.Protocol, "grpc")
 	cfg.OTLPInterval = cmp.Or(cfg.OTLPInterval, 15*time.Second)
-	cfg.TraceSampleRate = cmp.Or(cfg.TraceSampleRate, 1.0)
 	cfg.PromMaxRequests = cmp.Or(cfg.PromMaxRequests, 40)
 
 	if cfg.ServiceName == "" {
@@ -173,7 +170,6 @@ func Setup(ctx context.Context, logger *slog.Logger, cfg Config) (*Result, error
 		"logs_exporter", cfg.LogsExporter,
 		"otlp_protocol", cfg.Protocol,
 		"otlp_interval", cfg.OTLPInterval,
-		"trace_sample_rate", cfg.TraceSampleRate,
 	)
 
 	shutdown := func(ctx context.Context) error {
@@ -254,10 +250,11 @@ func buildTracerProvider(ctx context.Context, res *resource.Resource, cfg Config
 		return nil, fmt.Errorf("autoexport span exporter: %w", err)
 	}
 
+	// No WithSampler — the SDK reads OTEL_TRACES_SAMPLER and
+	// OTEL_TRACES_SAMPLER_ARG, falling back to ParentBased(AlwaysSample).
 	return sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exp),
 		sdktrace.WithResource(res),
-		sdktrace.WithSampler(sdktrace.ParentBased(consistent.ProbabilityBased(cfg.TraceSampleRate))),
 	), nil
 }
 

@@ -78,10 +78,6 @@ var (
 		"otel.otlp.interval",
 		"OTLP push interval.",
 	).Default("15s").Duration()
-	otelTraceSampleRate = kingpin.Flag(
-		"otel.trace-sample-rate",
-		"Trace sample rate (0 < rate <= 1).",
-	).Default("1.0").Float64()
 	otelServiceName = kingpin.Flag(
 		"otel.service-name",
 		"OTel service.name resource attribute.",
@@ -181,7 +177,6 @@ func main() {
 		MetricsExporter:   *otelMetricsExporter,
 		TracesExporter:    *otelTracesExporter,
 		LogsExporter:      *otelLogsExporter,
-		TraceSampleRate:   *otelTraceSampleRate,
 		PrometheusEnabled: *webPrometheus,
 		ConfigFile:        *otelConfigFile,
 	})
