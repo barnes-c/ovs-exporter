@@ -42,23 +42,26 @@ Key flags (full list via `--help`):
 | `--web.prometheus`     | `true`                              | Disable for OTLP-push-only deployments |
 | `--ovs.db-socket`      | `unix:/var/run/openvswitch/db.sock` | libovsdb endpoint                      |
 | `--ovs.run-dir`        | `/var/run/openvswitch`              | unixctl socket directory               |
-| `--cache.ttl`          | `15s`                               | unixctl scrape interval                |
+| `--cache.ttl`          | `60s`                               | unixctl scrape interval                |
 
-### OTel exporters
+### OTel pipeline
 
-Metrics, traces, and logs each have their own pipeline. Each can be set to `otlp`, `console`, or `none` (default off). `/metrics` is always served unless `--web.prometheus=false`.
+The OTel pipeline is entirely environment-driven; see the [OTel SDK env var spec](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/) for the full list. `/metrics` is always served unless `--web.prometheus=false`.
 
-|            Flag            |              Env              |                               Values                               |
-| -------------------------- | ----------------------------- | ------------------------------------------------------------------ |
-| `--otel.metrics-exporter`  | `OTEL_METRICS_EXPORTER`       | `otlp`, `console`, `none`                                          |
-| `--otel.traces-exporter`   | `OTEL_TRACES_EXPORTER`        | `otlp`, `console`, `none`                                          |
-| `--otel.logs-exporter`     | `OTEL_LOGS_EXPORTER`          | `otlp`, `console`, `none`                                          |
-| `--otel.otlp.endpoint`     | `OTEL_EXPORTER_OTLP_ENDPOINT` | e.g. `localhost:4317`                                              |
-| `--otel.otlp.protocol`     | `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc`, `http/protobuf`                                            |
-| `--otel.otlp.interval`     | `OTEL_METRIC_EXPORT_INTERVAL` | OTLP push interval (default `15s`)                                 |
-| `--otel.trace-sample-rate` | —                             | `0 < rate <= 1` (default `1.0`)                                    |
-| `--otel.service-name`      | `OTEL_SERVICE_NAME`           | resource `service.name`                                            |
-| `--otel.config-file`       | `OTEL_CONFIG_FILE`            | Declarative `otelconf` YAML (overrides all other `--otel.*` flags) |
+|           Variable            |                                  Purpose                                   |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| `OTEL_METRICS_EXPORTER`       | Comma-separated push exporters: `otlp`, `console`, `none` (default `none`) |
+| `OTEL_TRACES_EXPORTER`        | Traces exporter: `otlp`, `console`, `none` (default `none`)                |
+| `OTEL_LOGS_EXPORTER`          | Logs exporter: `otlp`, `console`, `none` (default `none`)                  |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Collector endpoint, e.g. `localhost:4317`                                  |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` or `http/protobuf`                                                  |
+| `OTEL_METRIC_EXPORT_INTERVAL` | OTLP metric push interval, in ms                                           |
+| `OTEL_TRACES_SAMPLER`         | e.g. `parentbased_traceidratio`                                            |
+| `OTEL_TRACES_SAMPLER_ARG`     | Sampler argument (e.g. `0.1`)                                              |
+| `OTEL_SERVICE_NAME`           | Resource `service.name` (default `ovs-exporter`)                           |
+| `OTEL_CONFIG_FILE`            | Path to `otelconf` YAML; overrides all other `OTEL_*` vars                 |
+
+The three exporter selectors default to `none` instead of the spec default `otlp` — the exporter stays silent until OTLP is opted in, so a fresh install doesn't spam connection errors at `localhost:4317`.
 
 Traces cover the scrape pipeline (`ovsdb`, `unixctl-ovs`, HTTP handler). Logs are emitted via the OTel logs SDK when an exporter is set.
 
