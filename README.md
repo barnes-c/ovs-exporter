@@ -55,7 +55,7 @@ Metrics, traces, and logs each have their own pipeline. Each can be set to `otlp
 | `--otel.logs-exporter`     | `OTEL_LOGS_EXPORTER`          | `otlp`, `console`, `none`                                          |
 | `--otel.otlp.endpoint`     | `OTEL_EXPORTER_OTLP_ENDPOINT` | e.g. `localhost:4317`                                              |
 | `--otel.otlp.protocol`     | `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc`, `http/protobuf`                                            |
-| `--otel.otlp.interval`     | —                             | OTLP push interval (default `15s`)                                 |
+| `--otel.otlp.interval`     | `OTEL_METRIC_EXPORT_INTERVAL` | OTLP push interval (default `15s`)                                 |
 | `--otel.trace-sample-rate` | —                             | `0 < rate <= 1` (default `1.0`)                                    |
 | `--otel.service-name`      | `OTEL_SERVICE_NAME`           | resource `service.name`                                            |
 | `--otel.config-file`       | `OTEL_CONFIG_FILE`            | Declarative `otelconf` YAML (overrides all other `--otel.*` flags) |
