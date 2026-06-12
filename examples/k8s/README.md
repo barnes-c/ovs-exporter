@@ -4,11 +4,11 @@ Reference Kubernetes manifests for running ovs-exporter on hypervisor nodes that
 
 ## What's here
 
-| File | Purpose |
-|---|---|
-| [`daemonset.yaml`](daemonset.yaml) | Runs ovs-exporter on every node matching the selector. Mounts `/var/run/openvswitch` read-only from the host. |
-| [`service.yaml`](service.yaml) | Headless Service over the DaemonSet pods. Required so the Prometheus Operator can discover scrape endpoints. |
-| [`servicemonitor.yaml`](servicemonitor.yaml) | Prometheus Operator CRD that wires the Service into your Prometheus scrape config. |
+|                     File                     |                                                    Purpose                                                    |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| [`daemonset.yaml`](daemonset.yaml)           | Runs ovs-exporter on every node matching the selector. Mounts `/var/run/openvswitch` read-only from the host. |
+| [`service.yaml`](service.yaml)               | Headless Service over the DaemonSet pods. Required so the Prometheus Operator can discover scrape endpoints.  |
+| [`servicemonitor.yaml`](servicemonitor.yaml) | Prometheus Operator CRD that wires the Service into your Prometheus scrape config.                            |
 
 ## Three things you must edit before applying
 
@@ -26,6 +26,7 @@ Reference Kubernetes manifests for running ovs-exporter on hypervisor nodes that
 3. **`release` label** in `servicemonitor.yaml` — the Prometheus Operator's `serviceMonitorSelector` decides which ServiceMonitors a given Prometheus instance picks up. Match what your install uses (default for `kube-prometheus-stack` is `release: kube-prometheus-stack`).
 
    Check:
+
    ```bash
    kubectl -n monitoring get prometheus -o yaml | grep -A5 serviceMonitorSelector
    ```
@@ -61,6 +62,7 @@ image: ghcr.io/barnes-c/ovs-exporter@sha256:<digest>
 ## Hardening
 
 The pod spec ships with:
+
 - `runAsNonRoot: true`, uid 65532
 - `readOnlyRootFilesystem: true`
 - `allowPrivilegeEscalation: false`

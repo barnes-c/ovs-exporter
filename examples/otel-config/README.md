@@ -1,35 +1,30 @@
 # examples/otel-config/
 
-Declarative YAML configuration for the OTel SDK pipeline. Use this **instead of** `--otel.*` flags when you want a single, fleet-portable config file.
+Declarative YAML configuration for the OTel SDK pipeline. Use this **instead of** the individual `OTEL_*` environment variables when you want a single, fleet-portable config file.
 
 ## When to use this
 
-Pick YAML over flags when:
+Pick YAML over env vars when:
 
 - You're running ovs-exporter alongside other OTel-instrumented services and want one shared config for all of them (the schema is language-agnostic).
-- You need richer pipelines than the flags expose: multiple processors, custom views, exemplar filters, parent-based samplers, or composite propagators.
+- You need richer pipelines than env vars expose: multiple processors, custom views, exemplar filters, parent-based samplers, or composite propagators.
 - You're standardizing your fleet on OTel's [declarative configuration spec](https://opentelemetry.io/docs/specs/otel/configuration/file-configuration/).
 
-Stick with flags for simple cases — flags cover the common "scrape `/metrics`, push to one OTLP collector" path with less ceremony.
+Stick with env vars for simple cases, they cover the common "scrape `/metrics`, push to one OTLP collector" path with less hassle.
 
 ## How activation works
 
 ```bash
-# Flag
-ovs-exporter --otel.config-file=/etc/ovs-exporter/otel-config.yaml
-
-# Environment (per the spec)
 export OTEL_CONFIG_FILE=/etc/ovs-exporter/otel-config.yaml
-ovs-exporter
+./ovs-exporter
 ```
 
-When `--otel.config-file` is set, **all other `--otel.*` flags are ignored** with a startup warning listing them. This matches the OTel spec rule: *"When `OTEL_CONFIG_FILE` is set, all other environment variables besides those referenced in the configuration file for environment variable substitution MUST be ignored."*
-
-Non-OTel flags (`--web.listen-address`, `--collector.*`, `--ovs.*`) continue to work as normal.
+When `OTEL_CONFIG_FILE` is set, **all other `OTEL_*` environment variables are ignored**.
+Non-OTel flags (`--web.listen-address`, `--collector.*`, `--ovs.*`, `--web.prometheus`) continue to work as normal.
 
 ## The Prometheus reader carve-out
 
-`/metrics` is always served by ovs-exporter from its built-in Prometheus reader — that's the product. The YAML config **must not declare a pull reader** (e.g. `meter_provider.readers[].pull.exporter.prometheus`). If it does, the exporter refuses to start with a clear error.
+By default ovs-exporter serves `/metrics` from its built-in Prometheus reader (disable with `--web.prometheus=false` for OTLP-push-only deployments). Whether or not the reader is enabled, the YAML config **must not declare a pull reader** (e.g. `meter_provider.readers[].pull.exporter.prometheus`). If it does, the exporter refuses to start with a clear error.
 
 Push-based metric readers (`periodic` with `otlp_grpc` / `otlp_http`) work as expected and run alongside the Prometheus reader.
 
@@ -37,9 +32,7 @@ Push-based metric readers (`periodic` with `otlp_grpc` / `otlp_http`) work as ex
 
 ## Files
 
-| File | Purpose |
-|---|---|
-| [`full-pipeline.yaml`](full-pipeline.yaml) | Reference config: OTLP push for metrics + traces + logs, 10% head sampling, tracecontext/baggage propagation. Edit endpoints and ratios to taste. |
+- [`full-pipeline.yaml`](full-pipeline.yaml) — reference config: OTLP push for metrics + traces + logs, 10% head sampling, tracecontext/baggage propagation. Edit endpoints and ratios to taste.
 
 ## References
 
