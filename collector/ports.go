@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	registerCollector("ports", DefaultEnabled, newOVSPortsCollector)
+	registerCollector("ports", DefaultEnabled, newOVSPortsCollector, OVSViewAvailable)
 }
 
 // ovsPortsCollector exposes the total number of OVS ports on the host.
@@ -18,12 +18,11 @@ func init() {
 // (VLAN tag, bond status, RSTP state) lives behind opt-in cardinality
 // flags in M1-T13.
 type ovsPortsCollector struct {
+	registrar
 	log *slog.Logger
 	src DataSource
 
 	count metric.Int64ObservableGauge
-
-	registration metric.Registration
 }
 
 func newOVSPortsCollector(log *slog.Logger) (Collector, error) {
@@ -58,11 +57,4 @@ func (c *ovsPortsCollector) observe(_ context.Context, o metric.Observer) error 
 	view.Ports(func(*ovsmodel.Port) { total++ })
 	o.ObserveInt64(c.count, total)
 	return nil
-}
-
-func (c *ovsPortsCollector) Close() error {
-	if c.registration == nil {
-		return nil
-	}
-	return c.registration.Unregister()
 }

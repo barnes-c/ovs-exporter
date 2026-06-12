@@ -6,10 +6,13 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+
+	"github.com/barnes-c/ovs-exporter/internal/unixctl"
 )
 
 func init() {
-	registerCollector("datapath", DefaultEnabled, newOVSDatapathCollector)
+	registerCollector("datapath", DefaultEnabled, newOVSDatapathCollector,
+		UnixctlHas(func(s *unixctl.OVSSnapshot) bool { return s.DPIF != nil || s.DPCTL != nil }))
 }
 
 // ovsDatapathCollector exposes per-datapath lookup, flow, and mask
@@ -23,6 +26,7 @@ func init() {
 // to the opt-in `--collector.datapath-interfaces` collector because
 // their cardinality scales with port count.
 type ovsDatapathCollector struct {
+	registrar
 	log *slog.Logger
 	src DataSource
 
@@ -30,8 +34,6 @@ type ovsDatapathCollector struct {
 	flows    metric.Int64ObservableGauge
 	masksHit metric.Int64ObservableCounter
 	cacheHit metric.Int64ObservableCounter
-
-	registration metric.Registration
 }
 
 func newOVSDatapathCollector(log *slog.Logger) (Collector, error) {
@@ -110,11 +112,4 @@ func (c *ovsDatapathCollector) observe(_ context.Context, o metric.Observer) err
 		}
 	}
 	return nil
-}
-
-func (c *ovsDatapathCollector) Close() error {
-	if c.registration == nil {
-		return nil
-	}
-	return c.registration.Unregister()
 }

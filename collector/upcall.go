@@ -7,16 +7,20 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+
+	"github.com/barnes-c/ovs-exporter/internal/unixctl"
 )
 
 func init() {
-	registerCollector("upcall", DefaultEnabled, newOVSUpcallCollector)
+	registerCollector("upcall", DefaultEnabled, newOVSUpcallCollector,
+		UnixctlHas(func(s *unixctl.OVSSnapshot) bool { return s.Upcall != nil }))
 }
 
 // ovsUpcallCollector exposes the per-datapath upcall / revalidator stats
 // reported by `ovs-appctl upcall/show`: current/max/limit flow counts,
 // per-tick dump duration, and per-handler key counts.
 type ovsUpcallCollector struct {
+	registrar
 	log *slog.Logger
 	src DataSource
 
@@ -25,8 +29,6 @@ type ovsUpcallCollector struct {
 	flowsLimit   metric.Int64ObservableGauge
 	dumpDuration metric.Int64ObservableGauge
 	handlerKeys  metric.Int64ObservableGauge
-
-	registration metric.Registration
 }
 
 func newOVSUpcallCollector(log *slog.Logger) (Collector, error) {
@@ -100,11 +102,4 @@ func (c *ovsUpcallCollector) observe(_ context.Context, o metric.Observer) error
 		}
 	}
 	return nil
-}
-
-func (c *ovsUpcallCollector) Close() error {
-	if c.registration == nil {
-		return nil
-	}
-	return c.registration.Unregister()
 }

@@ -6,18 +6,21 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+
+	"github.com/barnes-c/ovs-exporter/internal/unixctl"
 )
 
 func init() {
-	registerCollector("coverage", DefaultEnabled, newOVSCoverageCollector)
+	registerCollector("coverage", DefaultEnabled, newOVSCoverageCollector,
+		UnixctlHas(func(s *unixctl.OVSSnapshot) bool { return s.Coverage != nil }))
 }
 
 type ovsCoverageCollector struct {
+	registrar
 	log *slog.Logger
 	src DataSource
 
-	events       metric.Int64ObservableCounter
-	registration metric.Registration
+	events metric.Int64ObservableCounter
 }
 
 func newOVSCoverageCollector(log *slog.Logger) (Collector, error) {
@@ -53,11 +56,4 @@ func (c *ovsCoverageCollector) observe(_ context.Context, o metric.Observer) err
 			metric.WithAttributes(attribute.String("event", name)))
 	}
 	return nil
-}
-
-func (c *ovsCoverageCollector) Close() error {
-	if c.registration == nil {
-		return nil
-	}
-	return c.registration.Unregister()
 }

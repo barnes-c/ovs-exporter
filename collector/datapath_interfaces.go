@@ -7,22 +7,24 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+
+	"github.com/barnes-c/ovs-exporter/internal/unixctl"
 )
 
 func init() {
-	registerCollector("datapath-interfaces", DefaultDisabled, newOVSDatapathInterfacesCollector)
+	registerCollector("datapath-interfaces", DefaultDisabled, newOVSDatapathInterfacesCollector,
+		UnixctlHas(func(s *unixctl.OVSSnapshot) bool { return s.DPIF != nil }))
 }
 
 // ovsDatapathInterfacesCollector exposes the per-port topology embedded
 // in `ovs-appctl dpif/show`: which OF port lives on which bridge on
 // which datapath, plus its kernel datapath port number, OF port number, and type.
 type ovsDatapathInterfacesCollector struct {
+	registrar
 	log *slog.Logger
 	src DataSource
 
 	info metric.Int64ObservableGauge
-
-	registration metric.Registration
 }
 
 func newOVSDatapathInterfacesCollector(log *slog.Logger) (Collector, error) {
@@ -68,11 +70,4 @@ func (c *ovsDatapathInterfacesCollector) observe(_ context.Context, o metric.Obs
 		}
 	}
 	return nil
-}
-
-func (c *ovsDatapathInterfacesCollector) Close() error {
-	if c.registration == nil {
-		return nil
-	}
-	return c.registration.Unregister()
 }

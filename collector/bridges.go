@@ -11,17 +11,16 @@ import (
 )
 
 func init() {
-	registerCollector("bridges", DefaultEnabled, newOVSBridgesCollector)
+	registerCollector("bridges", DefaultEnabled, newOVSBridgesCollector, OVSViewAvailable)
 }
 
 type ovsBridgesCollector struct {
+	registrar
 	log *slog.Logger
 	src DataSource
 
 	bridgesCount metric.Int64ObservableGauge
 	portsCount   metric.Int64ObservableGauge
-
-	registration metric.Registration
 }
 
 func newOVSBridgesCollector(log *slog.Logger) (Collector, error) {
@@ -69,11 +68,4 @@ func (c *ovsBridgesCollector) observe(_ context.Context, o metric.Observer) erro
 	})
 	o.ObserveInt64(c.bridgesCount, total)
 	return nil
-}
-
-func (c *ovsBridgesCollector) Close() error {
-	if c.registration == nil {
-		return nil
-	}
-	return c.registration.Unregister()
 }

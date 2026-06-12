@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	registerCollector("interfaces", DefaultEnabled, newOVSInterfacesCollector)
+	registerCollector("interfaces", DefaultEnabled, newOVSInterfacesCollector, OVSViewAvailable)
 }
 
 // ovsInterfacesCollector exposes per-interface statistics counters from the
@@ -21,6 +21,7 @@ func init() {
 // Per-interface metadata (admin/link state, MTU, MAC, etc.) lives in
 // interfaces_info.go behind an opt-in flag because of cardinality.
 type ovsInterfacesCollector struct {
+	registrar
 	log *slog.Logger
 	src DataSource
 
@@ -31,8 +32,6 @@ type ovsInterfacesCollector struct {
 	errors     metric.Int64ObservableCounter
 	drops      metric.Int64ObservableCounter
 	collisions metric.Int64ObservableCounter
-
-	registration metric.Registration
 }
 
 func newOVSInterfacesCollector(log *slog.Logger) (Collector, error) {
@@ -169,11 +168,4 @@ func (c *ovsInterfacesCollector) observeInterface(o metric.Observer, bridge stri
 			attribute.String("interface", iface.Name),
 			attribute.String("direction", "tx"),
 		))
-}
-
-func (c *ovsInterfacesCollector) Close() error {
-	if c.registration == nil {
-		return nil
-	}
-	return c.registration.Unregister()
 }
