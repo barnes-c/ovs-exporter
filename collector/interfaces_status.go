@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	registerCollector("interface-status", DefaultDisabled, newOVSInterfaceStatusCollector)
+	registerCollector("interface-status", DefaultDisabled, newOVSInterfaceStatusCollector, OVSViewAvailable)
 }
 
 // ovsInterfaceStatusCollector exposes the contents of the OVS Interface
@@ -28,14 +28,13 @@ func init() {
 //   - Interface.external_ids holds orchestrator-applied UUIDs and tags;
 //     k8s and OpenStack both stamp ports with their own object IDs.
 type ovsInterfaceStatusCollector struct {
+	registrar
 	log *slog.Logger
 	src DataSource
 
 	status      metric.Int64ObservableGauge
 	options     metric.Int64ObservableGauge
 	externalIDs metric.Int64ObservableGauge
-
-	registration metric.Registration
 }
 
 func newOVSInterfaceStatusCollector(log *slog.Logger) (Collector, error) {
@@ -118,11 +117,4 @@ func (c *ovsInterfaceStatusCollector) emitMap(
 				attribute.String("value", v),
 			))
 	}
-}
-
-func (c *ovsInterfaceStatusCollector) Close() error {
-	if c.registration == nil {
-		return nil
-	}
-	return c.registration.Unregister()
 }

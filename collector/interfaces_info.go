@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	registerCollector("interface-info", DefaultDisabled, newOVSInterfaceInfoCollector)
+	registerCollector("interface-info", DefaultDisabled, newOVSInterfaceInfoCollector, OVSViewAvailable)
 }
 
 // ovsInterfaceInfoCollector exposes per-interface metadata: admin/link
@@ -19,6 +19,7 @@ func init() {
 // policing limits. Plus an `ovs.interface.info` gauge=1 carrying the
 // string-valued attributes (type, MAC, duplex).
 type ovsInterfaceInfoCollector struct {
+	registrar
 	log *slog.Logger
 	src DataSource
 
@@ -33,8 +34,6 @@ type ovsInterfaceInfoCollector struct {
 	policingKpktsRate metric.Int64ObservableGauge
 	policingKpktsBur  metric.Int64ObservableGauge
 	info              metric.Int64ObservableGauge
-
-	registration metric.Registration
 }
 
 func newOVSInterfaceInfoCollector(log *slog.Logger) (Collector, error) {
@@ -207,11 +206,4 @@ func (c *ovsInterfaceInfoCollector) observeInterface(o metric.Observer, bridge s
 		infoAttrs = append(infoAttrs, attribute.String("duplex", *iface.Duplex))
 	}
 	o.ObserveInt64(c.info, 1, metric.WithAttributes(infoAttrs...))
-}
-
-func (c *ovsInterfaceInfoCollector) Close() error {
-	if c.registration == nil {
-		return nil
-	}
-	return c.registration.Unregister()
 }

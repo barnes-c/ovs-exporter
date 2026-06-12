@@ -6,21 +6,23 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+
+	"github.com/barnes-c/ovs-exporter/internal/unixctl"
 )
 
 func init() {
-	registerCollector("memory", DefaultEnabled, newOVSMemoryCollector)
+	registerCollector("memory", DefaultEnabled, newOVSMemoryCollector,
+		UnixctlHas(func(s *unixctl.OVSSnapshot) bool { return s.Memory != nil }))
 }
 
 // ovsMemoryCollector exposes the per-resource counts reported by
 // `ovs-appctl memory/show` (handlers, ofconns, ports, rules, revalidators, ...).
 type ovsMemoryCollector struct {
+	registrar
 	log *slog.Logger
 	src DataSource
 
 	usage metric.Int64ObservableGauge
-
-	registration metric.Registration
 }
 
 func newOVSMemoryCollector(log *slog.Logger) (Collector, error) {
@@ -56,11 +58,4 @@ func (c *ovsMemoryCollector) observe(_ context.Context, o metric.Observer) error
 			metric.WithAttributes(attribute.String("resource", name)))
 	}
 	return nil
-}
-
-func (c *ovsMemoryCollector) Close() error {
-	if c.registration == nil {
-		return nil
-	}
-	return c.registration.Unregister()
 }

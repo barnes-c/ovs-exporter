@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"errors"
 	"io"
 	"log/slog"
@@ -9,6 +10,7 @@ import (
 
 	"go.opentelemetry.io/otel/metric"
 	noopmetric "go.opentelemetry.io/otel/metric/noop"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 )
 
 // fakeCollector is a no-op Collector used by registry-level tests so they
@@ -42,6 +44,42 @@ func TestGroup_RegisterAll_HitsEveryCollector(t *testing.T) {
 	}
 	if a.registerHits != 1 || b.registerHits != 1 {
 		t.Errorf("each collector should be registered once, got a=%d b=%d", a.registerHits, b.registerHits)
+	}
+}
+
+func TestGroup_RegisterAll_EmitsUpGauge(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
+
+	g := &Group{
+		log: discardLogger(),
+		collectors: map[string]Collector{
+			"healthy":   &fakeCollector{name: "healthy"},
+			"unhealthy": &fakeCollector{name: "unhealthy"},
+		},
+		deps: map[string]DepCheck{
+			"healthy":   func(DataSource) bool { return true },
+			"unhealthy": func(DataSource) bool { return false },
+		},
+	}
+
+	if err := g.RegisterAll(mp.Meter("test"), nil); err != nil {
+		t.Fatalf("RegisterAll: %v", err)
+	}
+	t.Cleanup(func() { _ = g.Close() })
+
+	got := collectInt64Gauges(t, reader)
+	cases := map[string]int64{
+		"ovs.collector.up{collector=healthy}":   1,
+		"ovs.collector.up{collector=unhealthy}": 0,
+	}
+	for k, want := range cases {
+		if g, ok := got[k]; !ok {
+			t.Errorf("missing metric %q (got: %v)", k, got)
+		} else if g != want {
+			t.Errorf("metric %q = %d, want %d", k, g, want)
+		}
 	}
 }
 
@@ -115,7 +153,7 @@ func TestRegisterCollector_EndToEnd(t *testing.T) {
 	const name = "__t4_smoke"
 	registerCollector(name, DefaultEnabled, func(*slog.Logger) (Collector, error) {
 		return &fakeCollector{name: name}, nil
-	})
+	}, func(DataSource) bool { return true })
 
 	if _, ok := factories[name]; !ok {
 		t.Error("registerCollector did not populate factories")
@@ -151,9 +189,11 @@ func resetRegistryForTest(t *testing.T) {
 	defer factoriesMu.Unlock()
 
 	savedFactories := factories
+	savedDeps := collectorDeps
 	savedState := collectorState
 	savedForced := forcedCollectors
 	factories = make(map[string]func(logger *slog.Logger) (Collector, error))
+	collectorDeps = make(map[string]DepCheck)
 	collectorState = make(map[string]*bool)
 	forcedCollectors = make(map[string]bool)
 
@@ -161,6 +201,7 @@ func resetRegistryForTest(t *testing.T) {
 		factoriesMu.Lock()
 		defer factoriesMu.Unlock()
 		factories = savedFactories
+		collectorDeps = savedDeps
 		collectorState = savedState
 		forcedCollectors = savedForced
 	})
