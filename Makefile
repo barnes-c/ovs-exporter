@@ -20,7 +20,7 @@ RUNTIME      ?= podman
 COMPOSE      ?= $(RUNTIME) compose
 
 .PHONY: all build build-all test test-integration vet lint fmt tidy snapshot release check clean \
-        smoke-up smoke-down smoke-logs
+        smoke-up smoke-down smoke-logs smoke-tinker
 
 all: fmt vet lint build test
 
@@ -67,6 +67,18 @@ smoke-down:
 
 smoke-logs:
 	$(COMPOSE) -f $(COMPOSE_FILE) logs -f
+
+# Bring the smoke stack up with the `tinker` profile: adds Prometheus
+# (OTLP-receiver mode), Tempo, Loki and Grafana for hand-building
+# dashboards. Same exporter + collector as test-integration; the OTel
+# collector starts pushing to the three TSDBs as soon as they're up.
+#   Grafana:    http://localhost:3000   (anonymous Admin, no login)
+#   Prometheus: http://localhost:9090
+#   Tempo:      http://localhost:3200
+#   Loki:       http://localhost:3100
+# Tear down with `make smoke-down` — it removes profile services too.
+smoke-tinker:
+	$(COMPOSE) -f $(COMPOSE_FILE) --profile tinker up --build -d
 
 # End-to-end test against a running smoke stack. Idempotent `up --wait`
 # so re-running doesn't pay the rebuild cost; stack stays up after for

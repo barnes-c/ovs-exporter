@@ -1,0 +1,14 @@
+---
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Promote OTLP resource attributes to labels so Grafana queries can
+# filter by service.name / deployment.environment without target_info
+# joins.
+otlp:
+  promote_resource_attributes:
+    - service.name
+    - service.namespace
+    - service.instance.id
+    - deployment.environment

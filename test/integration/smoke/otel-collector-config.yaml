@@ -1,0 +1,63 @@
+---
+# OTel Collector config for the smoke + tinker stacks. Three jobs:
+#  1. Receive OTLP metrics/traces/logs from ovs-exporter (gRPC :4317).
+#  2. Re-expose received metrics as Prometheus text on :8889 so the
+#     integration test can scrape-and-assert OVS metric names. This is
+#     for tests only, not the tinker data path.
+#  3. Push OTLP onward to the tinker TSDBs (prometheus / tempo / loki).
+#     These targets only exist when docker compose was started with
+#     --profile tinker; without it the connections fail. We keep the
+#     default sending_queue ON so the receiver still counts items as
+#     accepted (the queue absorbs the send and the test
+#     `otelcol_receiver_accepted_*` counters increment) but turn
+#     retry_on_failure OFF so failed pushes drop after one attempt
+#     instead of producing a backoff log storm.
+#
+# Self-telemetry is published on :8888 for the receiver-counter tests
+# (otelcol_receiver_accepted_*).
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    send_timestamps: true
+    metric_expiration: 5m
+  debug:
+    verbosity: basic
+
+  otlphttp/prometheus:
+    endpoint: http://prometheus:9090/api/v1/otlp
+    retry_on_failure:
+      enabled: false
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+    retry_on_failure:
+      enabled: false
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+    retry_on_failure:
+      enabled: false
+
+service:
+  telemetry:
+    metrics:
+      address: 0.0.0.0:8888
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      exporters: [prometheus, debug, otlphttp/prometheus]
+    traces:
+      receivers: [otlp]
+      exporters: [debug, otlp/tempo]
+    logs:
+      receivers: [otlp]
+      exporters: [debug, otlphttp/loki]

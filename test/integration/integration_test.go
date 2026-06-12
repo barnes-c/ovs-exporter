@@ -38,6 +38,17 @@ const (
 	// metrics (datapath, upcall, memory updates beyond idl-cells) need
 	// at least one TTL cycle after a mutation.
 	cacheTTL = 5 * time.Second
+
+	// collectorPromURL exposes the OTel Collector's prometheus exporter,
+	// which re-publishes the metrics it received over OTLP from the
+	// exporter. Used to assert the metrics pipeline delivered specific
+	// OVS metric names end-to-end.
+	collectorPromURL = "http://localhost:8889"
+	// collectorTelemetryURL is the Collector's own self-telemetry. We
+	// read its `otelcol_receiver_accepted_{spans,log_records}` counters
+	// from here — the prometheus exporter only handles metric points,
+	// so for traces and logs the receiver counter is what we have.
+	collectorTelemetryURL = "http://localhost:8888"
 )
 
 func TestIntegration_ProbesReachable(t *testing.T) {
@@ -110,6 +121,51 @@ func TestIntegration_AddBridgeLightsUpDatapathAndUpcall(t *testing.T) {
 	}, cacheTTL+5*time.Second)
 }
 
+// TestIntegration_OTel_MetricsPipelineDelivers asserts the metrics OTLP
+// push pipeline: ovs-exporter → otel-collector → collector's prometheus
+// exporter. Names are the same `ovs_*` set asserted directly off
+// /metrics in TestIntegration_DefaultCollectorsRegistered — proving they
+// also survive a round-trip through OTLP and the collector's
+// prometheusremotewrite-style re-export.
+func TestIntegration_OTel_MetricsPipelineDelivers(t *testing.T) {
+	wantPresent := []string{
+		"ovs_bridges_count",
+		"ovs_ports_count",
+	}
+	// Collector push interval is 1s (see otel-exporter-config.yaml), but
+	// the prometheus exporter's first scrape can lag a beat. cacheTTL+5s
+	// matches what the direct /metrics check uses and is plenty.
+	eventuallyHasMetricsAt(t, collectorPromURL+"/metrics", wantPresent, cacheTTL+5*time.Second)
+}
+
+// TestIntegration_OTel_TracesPipelineDelivers asserts spans reach the
+// collector. The exporter wraps its HTTP server with otelhttp, so every
+// /metrics scrape produces a span. We force a few scrapes, then read the
+// collector's self-telemetry to confirm the spans counter advanced.
+func TestIntegration_OTel_TracesPipelineDelivers(t *testing.T) {
+	for i := 0; i < 5; i++ {
+		resp, err := http.Get(exporterURL + "/metrics")
+		if err != nil {
+			t.Fatalf("forcing scrape: %v", err)
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}
+	eventuallyCounterGT(t, collectorTelemetryURL+"/metrics",
+		"otelcol_receiver_accepted_spans", 0, 10*time.Second)
+}
+
+// TestIntegration_OTel_LogsPipelineDelivers asserts log records reach
+// the collector. The exporter's slog handler is tee'd through the OTel
+// log pipeline when LogsExporter != "none" (set by the YAML); ovsdb /
+// scrape components log on startup and on each scrape, so by the time
+// the rest of the suite has run there should already be records in
+// flight. Verified via the collector's receiver self-telemetry.
+func TestIntegration_OTel_LogsPipelineDelivers(t *testing.T) {
+	eventuallyCounterGT(t, collectorTelemetryURL+"/metrics",
+		"otelcol_receiver_accepted_log_records", 0, 10*time.Second)
+}
+
 // eventuallyHasMetrics polls /metrics every 500ms until every name in
 // wants is present, up to timeout. Reports the last seen metric set on
 // failure so it's clear what *did* show up.
@@ -121,6 +177,14 @@ func TestIntegration_AddBridgeLightsUpDatapathAndUpcall(t *testing.T) {
 // on a healthy box without making it brittle on a slow one.
 func eventuallyHasMetrics(t *testing.T, wants []string, timeout time.Duration) {
 	t.Helper()
+	eventuallyHasMetricsAt(t, exporterURL+"/metrics", wants, timeout)
+}
+
+// eventuallyHasMetricsAt is the URL-parametric form of eventuallyHasMetrics,
+// used to assert metric names on both the exporter's /metrics and the
+// OTel Collector's re-export endpoint.
+func eventuallyHasMetricsAt(t *testing.T, url string, wants []string, timeout time.Duration) {
+	t.Helper()
 	const interval = 500 * time.Millisecond
 	deadline := time.Now().Add(timeout)
 	var (
@@ -128,7 +192,7 @@ func eventuallyHasMetrics(t *testing.T, wants []string, timeout time.Duration) {
 		lastMetrics map[string]*dto.MetricFamily
 	)
 	for {
-		lastMetrics = scrapeAndParse(t)
+		lastMetrics = scrapeAndParseAt(t, url)
 		missing = missing[:0]
 		for _, name := range wants {
 			if _, ok := lastMetrics[name]; !ok {
@@ -139,31 +203,84 @@ func eventuallyHasMetrics(t *testing.T, wants []string, timeout time.Duration) {
 			return
 		}
 		if time.Now().After(deadline) {
-			t.Errorf("after %v, still missing %v from /metrics; got: %v",
-				timeout, missing, sortedNames(lastMetrics))
+			t.Errorf("after %v, still missing %v from %s; got: %v",
+				timeout, missing, url, sortedNames(lastMetrics))
 			return
 		}
 		time.Sleep(interval)
 	}
 }
 
-// scrapeAndParse GETs /metrics and parses the response with expfmt.
+// scrapeAndParse GETs /metrics on the exporter and parses with expfmt.
 func scrapeAndParse(t *testing.T) map[string]*dto.MetricFamily {
 	t.Helper()
-	resp, err := http.Get(exporterURL + "/metrics")
+	return scrapeAndParseAt(t, exporterURL+"/metrics")
+}
+
+// scrapeAndParseAt GETs an arbitrary prometheus text-format endpoint.
+func scrapeAndParseAt(t *testing.T, url string) map[string]*dto.MetricFamily {
+	t.Helper()
+	resp, err := http.Get(url)
 	if err != nil {
-		t.Fatalf("scrape /metrics: %v", err)
+		t.Fatalf("scrape %s: %v", url, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("/metrics returned %d", resp.StatusCode)
+		t.Fatalf("%s returned %d", url, resp.StatusCode)
 	}
 
 	families, err := textParser.TextToMetricFamilies(resp.Body)
 	if err != nil {
-		t.Fatalf("parse /metrics: %v", err)
+		t.Fatalf("parse %s: %v", url, err)
 	}
 	return families
+}
+
+// counterSumByPrefix sums every data point of every Counter family whose
+// name has the given prefix. The OTel Collector's self-telemetry
+// publishes per-receiver / per-transport counters
+// (e.g. `otelcol_receiver_accepted_spans_total{receiver=...,transport=...}`),
+// and the suffix has historically drifted (`_total` was added when the
+// collector migrated to OTel-SDK-based internal metrics). Matching by
+// prefix and summing is robust to both.
+func counterSumByPrefix(families map[string]*dto.MetricFamily, prefix string) float64 {
+	var sum float64
+	for name, fam := range families {
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		if fam.GetType() != dto.MetricType_COUNTER {
+			continue
+		}
+		for _, m := range fam.Metric {
+			if c := m.GetCounter(); c != nil {
+				sum += c.GetValue()
+			}
+		}
+	}
+	return sum
+}
+
+// eventuallyCounterGT polls a prometheus endpoint until the summed value
+// across all metric families whose name has the given prefix exceeds
+// threshold, or the timeout expires. Used for OTel Collector self-telemetry
+// counters where the exact metric name may vary by collector version.
+func eventuallyCounterGT(t *testing.T, url, prefix string, threshold float64, timeout time.Duration) {
+	t.Helper()
+	const interval = 500 * time.Millisecond
+	deadline := time.Now().Add(timeout)
+	var last float64
+	for {
+		last = counterSumByPrefix(scrapeAndParseAt(t, url), prefix)
+		if last > threshold {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Errorf("after %v, %s* sum = %v, want > %v", timeout, prefix, last, threshold)
+			return
+		}
+		time.Sleep(interval)
+	}
 }
 
 // gaugeValue extracts the first data point's value from a Gauge family.

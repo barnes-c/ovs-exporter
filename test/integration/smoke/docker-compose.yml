@@ -19,6 +19,19 @@ services:
       retries: 10
       start_period: 10s
 
+  otel-collector:
+    image: otel/opentelemetry-collector:0.116.1
+    container_name: otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # collector self-telemetry (receiver counters)
+      - "8889:8889"   # prometheus exporter (re-exposed OVS metrics)
+
   exporter:
     build:
       context: ../../..
@@ -35,16 +48,96 @@ services:
     depends_on:
       ovs:
         condition: service_healthy
+      otel-collector:
+        condition: service_started
     ports:
       - "10054:10054"
     volumes:
       - ovs-runtime:/var/run/openvswitch:ro
+      - ./otel-exporter-config.yaml:/etc/ovs-exporter/otel-config.yaml:ro
+    environment:
+      OTEL_CONFIG_FILE: /etc/ovs-exporter/otel-config.yaml
     command:
       - --web.listen-address=:10054
       - --cache.ttl=5s
       - --ovs.db-socket=unix:/var/run/openvswitch/db.sock
       - --ovs.run-dir=/var/run/openvswitch
 
+  # --- tinker profile -------------------------------------------------
+  # Brought up by `make smoke-tinker`. Provides the three OTel-native
+  # backends Grafana reads from. Data flows: exporter -> collector ->
+  # OTLP push to {prometheus, tempo, loki} -> Grafana (PromQL / TraceQL /
+  # LogQL). No scrape jobs anywhere — Prometheus runs in
+  # OTLP-receiver mode (--web.enable-otlp-receiver).
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: prometheus
+    restart: unless-stopped
+    profiles: [tinker]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=1d
+      - --web.enable-otlp-receiver
+      - --web.enable-lifecycle
+    volumes:
+      - ./tinker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+
+  tempo:
+    image: grafana/tempo:2.7.0
+    container_name: tempo
+    restart: unless-stopped
+    profiles: [tinker]
+    user: "0:0"
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./tinker/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - "3200:3200"
+
+  loki:
+    image: grafana/loki:3.3.0
+    container_name: loki
+    restart: unless-stopped
+    profiles: [tinker]
+    user: "0:0"
+    command: ["-config.file=/etc/loki/loki.yaml"]
+    volumes:
+      - ./tinker/loki.yaml:/etc/loki/loki.yaml:ro
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: grafana
+    restart: unless-stopped
+    profiles: [tinker]
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_USERS_DEFAULT_THEME: "dark"
+      GF_FEATURE_TOGGLES_ENABLE: "traceqlEditor"
+    volumes:
+      - ./tinker/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+
 volumes:
   ovs-runtime:
   ovs-logs:
+  prometheus-data:
+  tempo-data:
+  loki-data:
+  grafana-data:
