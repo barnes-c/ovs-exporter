@@ -10,6 +10,8 @@ OTel-native Prometheus exporter for [Open vSwitch (OVS)](https://www.openvswitch
 
 Listens on port **10054** by default. Scrapes data from `ovsdb` (via libovsdb) and `ovs-vswitchd` (via the unixctl socket), exposes metrics at `/metrics`, and can additionally push metrics, traces, and logs to an OTLP endpoint.
 
+If this project is useful to you, a star on the repo would be appreciated.
+
 ## Quick start
 
 Docker (mount the OVS sockets read-only):
